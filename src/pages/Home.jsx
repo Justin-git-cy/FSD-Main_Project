@@ -190,7 +190,7 @@ function TrailStory() {
         <p>Scroll through three landscapes around Bangalore. Each one asks you to arrive a little differently.</p>
         <span className="story-scroll-cue"><span /> Keep moving to travel the map</span>
       </header>
-      <section className="trail-story" ref={storyRef} aria-labelledby="story-title">
+      <section id="trail-story" className="trail-story" ref={storyRef} aria-labelledby="story-title">
         <div className="story-chapters">
           {STORY_PLACES.map((place, index) => (
             <article className={`story-chapter${index === 0 ? ' is-active' : ''}`} id={`trail-chapter-${index + 1}`} aria-current={index === 0 ? 'step' : undefined} key={place.id}>
@@ -232,10 +232,51 @@ function TrailStory() {
 
 export default function Home() {
   useReveal();
+  const heroRef = useRef(null);
   const [locations, setLocations] = useState([]);
   const [category, setCategory] = useState('all');
   const [climate, setClimate] = useState({ season: 'winter', weather: 'sunny', temperature: '24°C' });
   const [season, setSeason] = useState('winter');
+
+  useLayoutEffect(() => {
+    const hero = heroRef.current;
+    if (!hero || window.matchMedia('(prefers-reduced-motion: reduce)').matches || window.matchMedia('(max-width: 767px)').matches) return undefined;
+    const map = hero.querySelector('.hero-map');
+    const mapArt = hero.querySelector('.map-art');
+    const mapImage = hero.querySelector('.map-landscape');
+    const contours = hero.querySelector('.map-art .topography');
+    const labels = hero.querySelectorAll('.map-label');
+    const copy = hero.querySelector('.hero-copy');
+    const sideNote = hero.querySelector('.hero-side-note');
+    const bottomline = hero.querySelector('.hero-bottomline');
+    const wash = hero.querySelector('.hero-transition-wash');
+    const context = gsap.context(() => {
+      gsap.set(map, { rotateY: -4, rotateX: 1, transformPerspective: 1500, transformStyle: 'preserve-3d' });
+      gsap.set(mapArt, { transformPerspective: 1000, transformStyle: 'preserve-3d' });
+      gsap.set(mapImage, { z: 0, scale: 1.025 });
+      gsap.set(contours, { z: 22 });
+      gsap.set(labels, { z: 42 });
+      const transition = gsap.timeline({
+        scrollTrigger: {
+          trigger: hero,
+          start: 'top top',
+          end: '+=70%',
+          scrub: 1,
+          pin: true,
+          invalidateOnRefresh: true
+        }
+      });
+      transition.to(map, { rotateX: 18, rotateY: -18, rotateZ: 3, z: -190, scale: .72, yPercent: -8, opacity: .28, ease: 'none' }, 0);
+      transition.to(mapArt, { rotateX: -8, rotateY: 4, z: 55, scale: 1.04, ease: 'none' }, 0);
+      transition.to(mapImage, { z: 24, scale: 1.13, ease: 'none' }, 0);
+      transition.to(contours, { z: -36, scale: 1.16, opacity: .5, ease: 'none' }, 0);
+      transition.to(labels, { z: 86, y: -5, ease: 'none' }, 0);
+      transition.to(copy, { y: -72, z: -80, opacity: .12, ease: 'none' }, 0);
+      transition.to([sideNote, bottomline], { opacity: .12, ease: 'none' }, 0);
+      transition.to(wash, { opacity: .94, ease: 'none' }, 0);
+    }, hero);
+    return () => context.revert();
+  }, []);
 
   const syncLocations = useCallback(() => {
     setLocations(getLocations().filter((location) => location.verificationStatus === 'verified'));
@@ -291,7 +332,7 @@ export default function Home() {
   const wordStatement = 'A quieter way to get out there.';
   return (
     <div className="viewpoint-home">
-        <section className="field-hero" aria-labelledby="hero-title">
+        <section className="field-hero" ref={heroRef} aria-labelledby="hero-title">
           <div className="hero-inner">
             <div className="hero-copy">
               <div className="hero-kicker"><span className="live-mark" /> A field guide to Bangalore’s edges</div>
@@ -319,10 +360,19 @@ export default function Home() {
             </div>
             <div className="hero-side-note"><span>FIG. 01</span><span>Leave a place<br />as you found it.</span></div>
           </div>
-          <div className="hero-bottomline"><span>FIELD GUIDE · 2026</span><a href="#discover">Scroll to discover <ArrowDown size={14} /></a><span>12.9716° N / 77.5946° E</span></div>
+          <nav className="hero-bottomline" aria-label="Explore the home page">
+            <span className="hero-edition">FIELD GUIDE <i /> 2026</span>
+            <div className="hero-route-nav">
+              <a href="#field-idea"><span>01</span> The idea <ArrowDown size={13} aria-hidden="true" /></a>
+              <a href="#trail-story"><span>02</span> Field notes <ArrowDown size={13} aria-hidden="true" /></a>
+              <a href="#discover"><span>03</span> Discoveries <ArrowDown size={13} aria-hidden="true" /></a>
+            </div>
+            <span className="hero-coordinates">12.9716° N / 77.5946° E</span>
+          </nav>
+          <div className="hero-transition-wash" aria-hidden="true" />
         </section>
 
-        <section className="field-statement" aria-label={wordStatement}>
+        <section id="field-idea" className="field-statement" aria-label={wordStatement}>
           <div className="statement-marker"><span>01</span><span>THE IDEA</span><span className="statement-rule" /></div>
           <p className="word-reveal">
             {wordStatement.split(' ').map((word, index) => <span key={`${word}-${index}`} style={{ '--word-index': index }}>{word}{index < wordStatement.split(' ').length - 1 ? ' ' : ''}</span>)}
