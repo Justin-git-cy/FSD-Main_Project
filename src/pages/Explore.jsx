@@ -138,7 +138,7 @@ export default function Explore() {
       // Google Maps style Tooltip on hover
       marker.bindTooltip(
         `<div style="
-          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-family: 'General Sans', sans-serif;
           font-weight: 800;
           font-size: 11px;
           color: #1e293b;
