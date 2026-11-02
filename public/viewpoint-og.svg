@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#131a16"/>
+  <g fill="none" stroke="#728367" stroke-opacity=".38" stroke-width="2">
+    <ellipse cx="820" cy="300" rx="95" ry="62" transform="rotate(-28 820 300)"/>
+    <ellipse cx="820" cy="300" rx="145" ry="97" transform="rotate(-28 820 300)"/>
+    <ellipse cx="820" cy="300" rx="195" ry="132" transform="rotate(-28 820 300)"/>
+    <ellipse cx="820" cy="300" rx="245" ry="168" transform="rotate(-28 820 300)"/>
+    <ellipse cx="820" cy="300" rx="295" ry="205" transform="rotate(-28 820 300)"/>
+  </g>
+  <path d="M650 490c70-70 125-30 185-105s105-90 80-150 65-100 170-165" fill="none" stroke="#c2d67b" stroke-width="4" stroke-dasharray="12 13" stroke-linecap="round"/>
+  <circle cx="1085" cy="70" r="9" fill="#da805d"/>
+  <text x="72" y="100" fill="#c2d67b" font-family="Arial,sans-serif" font-size="18" font-weight="700" letter-spacing="4">A FIELD GUIDE TO BANGALORE’S EDGES</text>
+  <text x="70" y="280" fill="#eeeade" font-family="Arial,sans-serif" font-size="76" font-weight="700" letter-spacing="-4">Find the paths</text>
+  <text x="70" y="370" fill="#bdc9aa" font-family="Arial,sans-serif" font-size="76" font-weight="700" letter-spacing="-4">Bangalore forgot.</text>
+  <text x="75" y="450" fill="#aab2a8" font-family="Arial,sans-serif" font-size="23">Community mapped trails, old forts, and quiet corners.</text>
+  <rect x="74" y="510" width="190" height="54" fill="#c2d67b"/>
+  <text x="94" y="545" fill="#202720" font-family="Arial,sans-serif" font-size="17" font-weight="700">EXPLORE THE MAP</text>
+</svg>

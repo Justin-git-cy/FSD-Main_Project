@@ -1,0 +1,11 @@
+.not-found-page { position: relative; display: grid; min-height: 66vh; place-content: center; overflow: hidden; padding: 72px 24px; background: #131a16; color: #eeeade; text-align: center; isolation: isolate; }
+.not-found-grid { position: absolute; z-index: -1; inset: 0; background-color: #131a16; }
+.not-found-coordinate { display: flex; align-items: center; justify-content: center; gap: 8px; color: #b4c38a; font: 700 10px/1.5 General Sans, sans-serif; letter-spacing: .13em; }
+.not-found-mark { display: grid; width: 74px; height: 74px; place-items: center; margin: 29px auto 25px; border: 1px solid rgba(194,214,123,.55); border-radius: 50%; color: #c2d67b; }
+.not-found-code { margin-bottom: 12px; color: #a7b19e; font-size: 13px; }
+.not-found-page h1 { margin: 0; font-family: 'Zodiak', Georgia, serif; font-size: clamp(48px, 8vw, 90px); font-weight: 400; letter-spacing: -.045em; line-height: .97; }
+.not-found-copy { max-width: 390px; margin: 23px auto 25px; color: #a5aea2; font-size: 13px; line-height: 1.7; }
+.not-found-link { display: inline-flex; align-items: center; justify-self: center; gap: 9px; padding: 14px 18px; border: 1px solid #c2d67b; color: #c2d67b !important; font-size: 12px; font-weight: 800; transition: background 250ms, color 250ms, transform 250ms; }
+.not-found-link:hover { transform: translateY(-3px); background: #c2d67b; color: #202720 !important; }
+.not-found-link:focus-visible { outline: 2px solid #da805d; outline-offset: 4px; }
+@media (prefers-reduced-motion: reduce) { .not-found-link { transition: none; } }

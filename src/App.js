@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 
@@ -13,15 +13,17 @@ import Trending from './pages/Trending';
 import Settings from './pages/Settings';
 import Recommendations from './pages/Recommendations';
 import Preferences from './pages/Preferences';
+import NotFound from './pages/NotFound';
 
 function App() {
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white font-sans selection:bg-adventure-500/30 selection:text-white transition-colors duration-300">
+      <a className="global-skip-link" href="#main-content">Skip to content</a>
       {/* Global Navigation Header (includes Weather Simulator and Marquee) */}
       <Navbar />
 
       {/* Main Container Content */}
-      <main className="flex-grow">
+      <main id="main-content" className="flex-grow">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
@@ -32,8 +34,7 @@ function App() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/recommendations" element={<Recommendations />} />
           <Route path="/preferences" element={<Preferences />} />
-          {/* Catch-all route redirecting back to homepage */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
 
