@@ -5,6 +5,17 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+html,
+body {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+}
+
 .global-skip-link {
   position: fixed;
   top: 8px;
