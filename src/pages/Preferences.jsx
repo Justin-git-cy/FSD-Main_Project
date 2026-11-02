@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { getPreferences, savePreferences, getActiveUser } from '../utils/storage';
+import { getPreferences, savePreferences } from '../utils/storage';
 import { Sliders, CheckCircle, Compass, Star, Award } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export default function Preferences() {
-  const { user } = getActiveUser() ? { user: getActiveUser() } : { user: null };
   const navigate = useNavigate();
 
   const [categories, setCategories] = useState({
