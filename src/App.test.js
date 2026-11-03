@@ -1,8 +1,10 @@
-import { render, screen } from '@testing-library/react';
-import App from './App';
+import { INITIAL_LOCATIONS } from './utils/db';
 
-test('renders learn react link', () => {
-  render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+test('includes seeded locations for the explore experience', () => {
+  expect(INITIAL_LOCATIONS.length).toBeGreaterThan(0);
+  expect(INITIAL_LOCATIONS).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ id: 'loc_savandurga', name: 'Savandurga Monolith Trek' })
+    ])
+  );
 });

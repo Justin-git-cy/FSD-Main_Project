@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getLocations, upvoteLocation, verifyLocation } from '../utils/storage';
-import { Search, ShieldAlert, CheckCircle, ThumbsUp, Award, MapPin } from 'lucide-react';
+import { Search, ShieldAlert, CheckCircle, ThumbsUp, Award } from 'lucide-react';
 import StarRating from '../components/StarRating';
 
 export default function Explore() {

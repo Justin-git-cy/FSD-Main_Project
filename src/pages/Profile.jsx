@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { getLocations } from '../utils/storage';
-import { User, Calendar, Award, Edit3, Save, MapPin, CheckCircle, ShieldAlert, Sun, Moon, Mail, Image } from 'lucide-react';
+import { User, Calendar, Award, Edit3, MapPin, CheckCircle, ShieldAlert, Sun, Moon, Mail, Image } from 'lucide-react';
 
 export default function Profile() {
   const { user, updateUserProfile, theme, toggleTheme } = useAuth();
