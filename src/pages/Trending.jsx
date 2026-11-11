@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getLocations, getCategories, upvoteLocation } from '../utils/storage';
+import { fetchLocations, getCategories, upvoteLocation } from '../utils/storage';
 import { Flame, Compass, Star, Award, ThumbsUp, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import StarRating from '../components/StarRating';
@@ -12,14 +12,20 @@ export default function Trending() {
   const [sortBy, setSortBy] = useState('votes'); // votes, name
 
   const loadData = () => {
-    setLocations(getLocations().filter(l => l.verificationStatus === 'verified'));
+    fetchLocations().then((locs) => {
+      setLocations(locs.filter(l => l.verificationStatus === 'verified'));
+    });
     setCategories(getCategories());
   };
 
   useEffect(() => {
     loadData();
     window.addEventListener('storage', loadData);
-    return () => window.removeEventListener('storage', loadData);
+    window.addEventListener('locationsUpdated', loadData);
+    return () => {
+      window.removeEventListener('storage', loadData);
+      window.removeEventListener('locationsUpdated', loadData);
+    };
   }, []);
 
   const handleUpvote = (id, e) => {

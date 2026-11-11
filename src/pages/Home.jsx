@@ -5,7 +5,7 @@ import {
   MapPin, ShieldCheck, Sparkles, Star, Sun, CloudRain, CloudFog, Cloud,
   Trees, Wind
 } from 'lucide-react';
-import { getLocations, getWeather, setWeather, upvoteLocation } from '../utils/storage';
+import { fetchLocations, getWeather, setWeather, upvoteLocation } from '../utils/storage';
 import { INITIAL_LOCATIONS } from '../utils/db';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
@@ -36,7 +36,7 @@ const weatherOptions = [
   { value: 'misty', label: 'Mist', icon: CloudFog }
 ];
 
-function useReveal() {
+function useReveal(deps = []) {
   useEffect(() => {
     const elements = document.querySelectorAll('.reveal-on-scroll, .word-reveal');
     if (!('IntersectionObserver' in window)) {
@@ -50,10 +50,11 @@ function useReveal() {
           observer.unobserve(entry.target);
         }
       });
-    }, { threshold: 0.18, rootMargin: '0px 0px -8% 0px' });
+    }, { threshold: 0.1, rootMargin: '0px 0px 50px 0px' });
     elements.forEach((element) => observer.observe(element));
     return () => observer.disconnect();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
 }
 
 function Topography() {
@@ -79,11 +80,12 @@ function Topography() {
 }
 
 function SpotCard({ location, onUpvote }) {
-  const category = location.categoryId === 'cat_trekking'
+  const catSlug = location.category?.slug || '';
+  const category = (location.categoryId === 'cat_trekking' || catSlug === 'trekking')
     ? 'Trail'
-    : location.categoryId === 'cat_abandoned' ? 'Ruins' : 'Historic';
+    : (location.categoryId === 'cat_abandoned' || catSlug === 'abandoned') ? 'Ruins' : 'Historic';
   return (
-    <article className="spot-card reveal-on-scroll">
+    <article className="spot-card is-visible">
       <Link className="spot-image-link" to={`/explore?focus=${location.id}`} aria-label={`Explore ${location.name}`}>
         <img src={location.images?.[0]} alt={`Landscape near ${location.name}`} loading="lazy" />
         <span className="spot-index">{category}</span>
@@ -231,12 +233,12 @@ function TrailStory() {
 }
 
 export default function Home() {
-  useReveal();
   const heroRef = useRef(null);
   const [locations, setLocations] = useState([]);
   const [category, setCategory] = useState('all');
   const [climate, setClimate] = useState({ season: 'winter', weather: 'sunny', temperature: '24°C' });
   const [season, setSeason] = useState('winter');
+  useReveal([locations, category]);
 
   useLayoutEffect(() => {
     const hero = heroRef.current;
@@ -279,7 +281,9 @@ export default function Home() {
   }, []);
 
   const syncLocations = useCallback(() => {
-    setLocations(getLocations().filter((location) => location.verificationStatus === 'verified'));
+    fetchLocations().then((locs) => {
+      setLocations(locs.filter((location) => location.verificationStatus === 'verified'));
+    });
   }, []);
   useEffect(() => {
     syncLocations();
@@ -290,15 +294,21 @@ export default function Home() {
     };
     syncClimate();
     window.addEventListener('storage', syncLocations);
+    window.addEventListener('locationsUpdated', syncLocations);
     window.addEventListener('weatherChanged', syncClimate);
     return () => {
       window.removeEventListener('storage', syncLocations);
+      window.removeEventListener('locationsUpdated', syncLocations);
       window.removeEventListener('weatherChanged', syncClimate);
     };
   }, [syncLocations]);
 
   const featured = useMemo(() => {
-    const filtered = locations.filter((location) => category === 'all' || location.categoryId === category);
+    const filtered = locations.filter((location) => {
+      if (category === 'all') return true;
+      const slug = location.category?.slug || '';
+      return location.categoryId === category || (slug && category.endsWith(slug));
+    });
     return [...filtered].sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0)).slice(0, 3);
   }, [locations, category]);
 

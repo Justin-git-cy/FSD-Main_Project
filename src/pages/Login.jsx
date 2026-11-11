@@ -8,11 +8,11 @@ export default function Login() {
   const { login, user } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogin = (nameToLogin) => {
+  const handleLogin = async (nameToLogin) => {
     const finalName = nameToLogin || username;
     if (!finalName.trim()) return;
     
-    login(finalName);
+    await login(finalName);
     navigate('/profile');
   };
 

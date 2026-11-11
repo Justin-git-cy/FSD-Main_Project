@@ -28,32 +28,78 @@ export const AuthProvider = ({ children }) => {
     } else {
       setTheme('dark'); // default theme
     }
+
+    // Sync users from MongoDB backend
+    fetch('/api/users')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && data.success && Array.isArray(data.data)) {
+          const mappedUsers = data.data.map((u) => ({
+            ...u,
+            id: u._id || u.id,
+          }));
+          setUsers(mappedUsers);
+          localStorage.setItem('viewpoint_users', JSON.stringify(mappedUsers));
+        }
+      })
+      .catch((err) => console.warn('User sync notice:', err.message));
   }, []);
 
-  const login = (username) => {
-    const allUsers = getUsers();
+  const login = async (username) => {
     const formattedUsername = username.trim().toLowerCase();
-    
-    // Find matching user
+
+    // 1. Authenticate / Create in MongoDB via Backend API
+    try {
+      const res = await fetch('/api/users/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: formattedUsername }),
+      });
+      const data = await res.json();
+      if (data && data.success && data.data) {
+        const mongoUser = {
+          ...data.data,
+          id: data.data._id || data.data.id,
+        };
+
+        const allUsers = getUsers();
+        const existingIdx = allUsers.findIndex(
+          (u) => u.username.toLowerCase() === formattedUsername || (u.id && u.id === mongoUser.id)
+        );
+        const updatedUsers =
+          existingIdx >= 0
+            ? allUsers.map((u, i) => (i === existingIdx ? mongoUser : u))
+            : [...allUsers, mongoUser];
+
+        localStorage.setItem('viewpoint_users', JSON.stringify(updatedUsers));
+        setUsers(updatedUsers);
+        setActiveUser(mongoUser);
+        setUser(mongoUser);
+        if (mongoUser.theme) setTheme(mongoUser.theme);
+        return mongoUser;
+      }
+    } catch (err) {
+      console.warn('Backend login fallback to local:', err.message);
+    }
+
+    // 2. Offline / local fallback
+    const allUsers = getUsers();
     let foundUser = allUsers.find(
-      u => u.username.toLowerCase() === formattedUsername || u.email.toLowerCase().startsWith(formattedUsername)
+      (u) => u.username.toLowerCase() === formattedUsername || u.email.toLowerCase().startsWith(formattedUsername)
     );
 
     if (!foundUser) {
-      // Create new user if not found
       foundUser = {
         id: `usr_${Date.now()}`,
         username: username.trim(),
         fullName: username.trim(),
         email: `${username.trim().toLowerCase()}@viewpoint.com`,
-        role: 'Explorer', // Default new users to Explorer
+        role: 'Explorer',
         avatar: `https://api.dicebear.com/7.x/adventurer/svg?seed=${username.trim()}`,
         bio: 'New explorer eager to map Bangalore outskirts.',
         joinedDate: new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
-        theme: 'dark'
+        theme: 'dark',
       };
-      
-      // Save new user
       const updatedUsers = [...allUsers, foundUser];
       localStorage.setItem('viewpoint_users', JSON.stringify(updatedUsers));
       setUsers(updatedUsers);
@@ -61,9 +107,7 @@ export const AuthProvider = ({ children }) => {
 
     setActiveUser(foundUser);
     setUser(foundUser);
-    if (foundUser.theme) {
-      setTheme(foundUser.theme);
-    }
+    if (foundUser.theme) setTheme(foundUser.theme);
     return foundUser;
   };
 
@@ -73,27 +117,37 @@ export const AuthProvider = ({ children }) => {
     setTheme('dark'); // reset to default
   };
 
-  const updateUserProfile = (updates) => {
+  const updateUserProfile = async (updates) => {
     if (!user) return;
-    
+
     const updatedUser = {
       ...user,
-      ...updates
+      ...updates,
     };
 
-    // Update states
+    // Update state immediately
     setUser(updatedUser);
     setActiveUser(updatedUser);
-    
-    if (updates.theme) {
-      setTheme(updates.theme);
-    }
+    if (updates.theme) setTheme(updates.theme);
 
-    // Update in users database
     const allUsers = getUsers();
-    const updatedUsers = allUsers.map(u => u.id === user.id ? updatedUser : u);
+    const updatedUsers = allUsers.map((u) => (u.id === user.id ? updatedUser : u));
     localStorage.setItem('viewpoint_users', JSON.stringify(updatedUsers));
     setUsers(updatedUsers);
+
+    // Sync to MongoDB
+    const userId = user._id || user.id;
+    if (userId) {
+      try {
+        await fetch(`/api/users/${userId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        });
+      } catch (err) {
+        console.warn('Profile update sync warning:', err.message);
+      }
+    }
   };
 
   const toggleTheme = () => {

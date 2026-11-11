@@ -66,10 +66,12 @@ export default function Marquee() {
     // Listen to weather changes
     window.addEventListener('weatherChanged', loadAlerts);
     window.addEventListener('storage', loadAlerts); // sync on submissions
+    window.addEventListener('locationsUpdated', loadAlerts);
     
     return () => {
       window.removeEventListener('weatherChanged', loadAlerts);
       window.removeEventListener('storage', loadAlerts);
+      window.removeEventListener('locationsUpdated', loadAlerts);
     };
   }, []);
 

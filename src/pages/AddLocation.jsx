@@ -62,7 +62,7 @@ export default function AddLocation() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
 
@@ -79,7 +79,7 @@ export default function AddLocation() {
       lng: parseFloat(formData.lng),
       images: formData.imageUrl.trim() ? [formData.imageUrl.trim()] : [],
       verificationStatus: user.role === 'Pathfinder' ? 'verified' : 'pending',
-      createdBy: user.id,
+      createdBy: user._id || user.id,
       bestSeason: formData.bestSeason,
       seasonalSuitability: {
         summer: parseFloat(formData.summerSuitability),
@@ -91,8 +91,8 @@ export default function AddLocation() {
       upvotes: 0
     };
 
-    const added = addLocation(newLoc);
-    navigate(`/explore?focus=${added.id}`);
+    const added = await addLocation(newLoc);
+    navigate(`/explore?focus=${added.id || added._id}`);
   };
 
   return (
