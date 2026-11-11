@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getLocations, upvoteLocation, verifyLocation } from '../utils/storage';
+import { fetchLocations, upvoteLocation, verifyLocation } from '../utils/storage';
 import { Search, ShieldAlert, CheckCircle, ThumbsUp, Award } from 'lucide-react';
 import StarRating from '../components/StarRating';
 
@@ -25,14 +25,19 @@ export default function Explore() {
 
   // 1. Load locations
   const loadLocations = () => {
-    const data = getLocations();
-    setLocations(data);
+    fetchLocations().then((data) => {
+      setLocations(data);
+    });
   };
 
   useEffect(() => {
     loadLocations();
     window.addEventListener('storage', loadLocations);
-    return () => window.removeEventListener('storage', loadLocations);
+    window.addEventListener('locationsUpdated', loadLocations);
+    return () => {
+      window.removeEventListener('storage', loadLocations);
+      window.removeEventListener('locationsUpdated', loadLocations);
+    };
   }, []);
 
   // 2. Filter locations

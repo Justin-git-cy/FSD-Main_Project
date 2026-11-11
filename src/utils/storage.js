@@ -1,4 +1,5 @@
 import { INITIAL_CATEGORIES, INITIAL_LOCATIONS, INITIAL_REVIEWS, INITIAL_USERS } from './db';
+import { API_BASE } from './api';
 
 // LocalStorage Namespaces
 const KEYS = {
@@ -59,6 +60,42 @@ export const seedDatabase = () => {
 // Call seed immediately on import
 seedDatabase();
 
+// Sync locations with MongoDB Atlas backend API
+export const syncLocationsFromAPI = async () => {
+  return fetchLocations();
+};
+
+// Fetch locations from MongoDB Atlas backend API (with fallback)
+export const fetchLocations = async () => {
+  try {
+    const res = await fetch(`${API_BASE}/locations`);
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+        const mapped = json.data.map((loc) => {
+          const catSlug = loc.category?.slug || '';
+          return {
+            ...loc,
+            id: loc._id || loc.id,
+            categoryId: loc.categoryId || (catSlug ? `cat_${catSlug}` : 'cat_trekking'),
+            createdBy: loc.createdBy?._id || loc.createdBy?.username || loc.createdBy || 'usr_001',
+          };
+        });
+        localStorage.setItem(KEYS.LOCATIONS, JSON.stringify(mapped));
+        window.dispatchEvent(new CustomEvent('locationsUpdated', { detail: mapped }));
+        window.dispatchEvent(new Event('storage'));
+        return mapped;
+      }
+    }
+  } catch (err) {
+    console.warn('Backend API sync notice:', err.message);
+  }
+  return getLocations();
+};
+
+// Initial sync on load
+fetchLocations();
+
 // Locations CRUD
 export const getLocations = () => {
   return JSON.parse(localStorage.getItem(KEYS.LOCATIONS)) || [];
@@ -68,9 +105,34 @@ export const saveLocations = (locations) => {
   localStorage.setItem(KEYS.LOCATIONS, JSON.stringify(locations));
 };
 
-export const addLocation = (location) => {
+export const addLocation = async (location) => {
   const locations = getLocations();
-  const newLocation = {
+  let created = null;
+
+  // Sync to MongoDB backend first
+  try {
+    const res = await fetch(`${API_BASE}/locations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(location),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && json.data) {
+        const catSlug = json.data.category?.slug || '';
+        created = {
+          ...json.data,
+          id: json.data._id || json.data.id,
+          categoryId: json.data.categoryId || (catSlug ? `cat_${catSlug}` : 'cat_trekking'),
+          createdBy: json.data.createdBy?._id || json.data.createdBy?.username || json.data.createdBy || 'usr_001',
+        };
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to add location to MongoDB:', e.message);
+  }
+
+  const finalLocation = created || {
     ...location,
     id: `loc_${Date.now()}`,
     upvotes: 0,
@@ -80,33 +142,56 @@ export const addLocation = (location) => {
       ? location.images 
       : ['https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=800&q=80']
   };
-  locations.push(newLocation);
+
+  locations.push(finalLocation);
   saveLocations(locations);
-  return newLocation;
+  window.dispatchEvent(new CustomEvent('locationsUpdated', { detail: finalLocation }));
+  window.dispatchEvent(new Event('storage'));
+  return finalLocation;
 };
 
-export const upvoteLocation = (locationId) => {
+export const upvoteLocation = async (locationId) => {
   const locations = getLocations();
   const updated = locations.map(loc => {
-    if (loc.id === locationId) {
-      return { ...loc, upvotes: loc.upvotes + 1 };
+    if (loc.id === locationId || loc._id === locationId) {
+      return { ...loc, upvotes: (loc.upvotes || 0) + 1 };
     }
     return loc;
   });
   saveLocations(updated);
-  return updated.find(loc => loc.id === locationId);
+
+  // Sync to MongoDB backend
+  try {
+    await fetch(`${API_BASE}/locations/${locationId}/upvote`, { method: 'PATCH' });
+  } catch (e) {
+    // offline fallback
+  }
+
+  window.dispatchEvent(new CustomEvent('locationsUpdated'));
+  window.dispatchEvent(new Event('storage'));
+  return updated.find(loc => loc.id === locationId || loc._id === locationId);
 };
 
-export const verifyLocation = (locationId) => {
+export const verifyLocation = async (locationId) => {
   const locations = getLocations();
   const updated = locations.map(loc => {
-    if (loc.id === locationId) {
+    if (loc.id === locationId || loc._id === locationId) {
       return { ...loc, verificationStatus: 'verified' };
     }
     return loc;
   });
   saveLocations(updated);
-  return updated.find(loc => loc.id === locationId);
+
+  // Sync to MongoDB backend
+  try {
+    await fetch(`${API_BASE}/locations/${locationId}/verify`, { method: 'PATCH' });
+  } catch (e) {
+    // offline fallback
+  }
+
+  window.dispatchEvent(new CustomEvent('locationsUpdated'));
+  window.dispatchEvent(new Event('storage'));
+  return updated.find(loc => loc.id === locationId || loc._id === locationId);
 };
 
 // Categories

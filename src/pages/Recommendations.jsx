@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getLocations, getPreferences, getWeather, upvoteLocation } from '../utils/storage';
+import { fetchLocations, getPreferences, getWeather, upvoteLocation } from '../utils/storage';
 import { rankLocations } from '../utils/scoring';
 import { Sparkles, Sliders, Settings, ThumbsUp, AlertTriangle, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -13,13 +13,14 @@ export default function Recommendations() {
   const loadRankings = () => {
     const activePrefs = getPreferences();
     const activeWeather = getWeather();
-    const locations = getLocations().filter(l => l.verificationStatus === 'verified');
-
     setPrefs(activePrefs);
     setClimate(activeWeather);
 
-    const ranked = rankLocations(locations, activePrefs, activeWeather);
-    setRankedList(ranked);
+    fetchLocations().then((locs) => {
+      const locations = locs.filter(l => l.verificationStatus === 'verified');
+      const ranked = rankLocations(locations, activePrefs, activeWeather);
+      setRankedList(ranked);
+    });
   };
 
   useEffect(() => {
@@ -29,14 +30,16 @@ export default function Recommendations() {
       loadRankings();
     };
 
+    window.addEventListener('storage', handleUpdates);
+    window.addEventListener('locationsUpdated', handleUpdates);
     window.addEventListener('weatherChanged', handleUpdates);
     window.addEventListener('preferencesChanged', handleUpdates);
-    window.addEventListener('storage', handleUpdates);
 
     return () => {
+      window.removeEventListener('storage', handleUpdates);
+      window.removeEventListener('locationsUpdated', handleUpdates);
       window.removeEventListener('weatherChanged', handleUpdates);
       window.removeEventListener('preferencesChanged', handleUpdates);
-      window.removeEventListener('storage', handleUpdates);
     };
   }, []);
 

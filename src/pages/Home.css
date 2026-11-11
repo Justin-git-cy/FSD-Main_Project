@@ -174,7 +174,7 @@
 .filter-chip.active { background: #29372c; color: #e8e5d9; }
 .all-spots-link { color: #344438 !important; font-size: 11px; }
 .spot-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(18px, 2.7vw, 39px); max-width: 1260px; margin: auto; }
-.spot-card { min-width: 0; border-bottom: 1px solid rgba(32,39,32,.22); }
+.spot-card { min-width: 0; border-bottom: 1px solid rgba(32,39,32,.22); opacity: 1 !important; transform: none !important; }
 .spot-image-link { position: relative; display: block; height: clamp(195px, 22vw, 290px); overflow: hidden; background: #cad0c1; }
 .spot-image-link::after { position: absolute; inset: 0; background: rgba(19,26,22,.04); content: ''; transition: background 350ms; }
 .spot-image-link:hover::after { background: rgba(19,26,22,0); }

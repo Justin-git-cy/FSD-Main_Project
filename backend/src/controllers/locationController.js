@@ -1,4 +1,5 @@
-const { Location } = require('../models');
+const mongoose = require('mongoose');
+const { Location, Category, User } = require('../models');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiError = require('../utils/ApiError');
 const ApiResponse = require('../utils/ApiResponse');
@@ -11,8 +12,16 @@ exports.getLocations = asyncHandler(async (req, res) => {
   const { category, status, search, sort } = req.query;
 
   const filter = {};
-  if (category) filter.category = category;
-  if (status) filter.verificationStatus = status;
+  if (category && category !== 'all') {
+    if (mongoose.Types.ObjectId.isValid(category)) {
+      filter.category = category;
+    } else {
+      const slug = category.replace('cat_', '');
+      const catDoc = await Category.findOne({ slug });
+      if (catDoc) filter.category = catDoc._id;
+    }
+  }
+  if (status && status !== 'all') filter.verificationStatus = status;
   if (search) {
     filter.$or = [
       { name: { $regex: search, $options: 'i' } },
@@ -48,25 +57,51 @@ exports.getLocationById = asyncHandler(async (req, res) => {
 // @route   POST /api/locations
 exports.createLocation = asyncHandler(async (req, res) => {
   const {
-    name, description, category, difficulty,
+    name, description, category, categoryId: catInput, difficulty,
     lat, lng, images, bestSeason,
-    seasonalSuitability, weatherWarnings, createdBy,
+    seasonalSuitability, weatherWarnings, createdBy, verificationStatus,
   } = req.body;
+
+  let resolvedCat = category || catInput;
+  if (!resolvedCat || !mongoose.Types.ObjectId.isValid(resolvedCat)) {
+    const slug = String(resolvedCat || 'cat_trekking').replace('cat_', '');
+    const foundCat = await Category.findOne({ slug });
+    if (foundCat) resolvedCat = foundCat._id;
+    else {
+      const anyCat = await Category.findOne();
+      if (anyCat) resolvedCat = anyCat._id;
+    }
+  }
+
+  let resolvedUser = createdBy;
+  if (!resolvedUser || !mongoose.Types.ObjectId.isValid(resolvedUser)) {
+    let foundUser = await User.findOne({
+      $or: [
+        { username: createdBy },
+        { _id: mongoose.Types.ObjectId.isValid(createdBy) ? createdBy : null },
+      ],
+    });
+    if (!foundUser) {
+      foundUser = await User.findOne();
+    }
+    if (foundUser) resolvedUser = foundUser._id;
+  }
 
   const location = await Location.create({
     name,
     description,
-    category,
-    difficulty,
-    lat,
-    lng,
+    category: resolvedCat,
+    difficulty: difficulty || 'medium',
+    lat: Number(lat),
+    lng: Number(lng),
     images: images && images.length > 0
       ? images
       : ['https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=800&q=80'],
-    bestSeason,
+    bestSeason: bestSeason || 'Winter',
     seasonalSuitability,
     weatherWarnings,
-    createdBy,
+    createdBy: resolvedUser,
+    verificationStatus: verificationStatus || 'pending',
     rating: 4.0,
     upvotes: 0,
   });
@@ -81,11 +116,21 @@ exports.createLocation = asyncHandler(async (req, res) => {
 // @desc    Upvote a location
 // @route   PATCH /api/locations/:id/upvote
 exports.upvoteLocation = asyncHandler(async (req, res) => {
-  const location = await Location.findByIdAndUpdate(
-    req.params.id,
-    { $inc: { upvotes: 1 } },
-    { new: true }
-  ).populate('category', 'name slug icon');
+  const { id } = req.params;
+  let location;
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    location = await Location.findByIdAndUpdate(
+      id,
+      { $inc: { upvotes: 1 } },
+      { new: true }
+    ).populate('category', 'name slug icon');
+  } else {
+    location = await Location.findOneAndUpdate(
+      { name: id },
+      { $inc: { upvotes: 1 } },
+      { new: true }
+    ).populate('category', 'name slug icon');
+  }
 
   if (!location) throw new ApiError(404, 'Location not found');
   res.status(200).json(new ApiResponse(200, location, 'Upvote recorded'));
@@ -94,11 +139,21 @@ exports.upvoteLocation = asyncHandler(async (req, res) => {
 // @desc    Verify a location (Pathfinder only)
 // @route   PATCH /api/locations/:id/verify
 exports.verifyLocation = asyncHandler(async (req, res) => {
-  const location = await Location.findByIdAndUpdate(
-    req.params.id,
-    { verificationStatus: 'verified' },
-    { new: true }
-  ).populate('category', 'name slug icon');
+  const { id } = req.params;
+  let location;
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    location = await Location.findByIdAndUpdate(
+      id,
+      { verificationStatus: 'verified' },
+      { new: true }
+    ).populate('category', 'name slug icon');
+  } else {
+    location = await Location.findOneAndUpdate(
+      { name: id },
+      { verificationStatus: 'verified' },
+      { new: true }
+    ).populate('category', 'name slug icon');
+  }
 
   if (!location) throw new ApiError(404, 'Location not found');
   res.status(200).json(new ApiResponse(200, location, 'Location verified'));

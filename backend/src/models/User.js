@@ -47,6 +47,7 @@ const userSchema = new mongoose.Schema(
 
 // Virtual for joinedDate display string
 userSchema.virtual('joinedDate').get(function () {
+  if (!this.createdAt) return null;
   return this.createdAt.toLocaleDateString('en-US', {
     month: 'short',
     year: 'numeric',

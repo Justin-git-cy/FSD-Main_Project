@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
-import { getLocations } from '../utils/storage';
+import { fetchLocations } from '../utils/storage';
 import { User, Calendar, Award, Edit3, MapPin, CheckCircle, ShieldAlert, Sun, Moon, Mail, Image } from 'lucide-react';
 
 export default function Profile() {
@@ -23,8 +23,14 @@ export default function Profile() {
       setAvatar(user.avatar || '');
       setBioText(user.bio || '');
       
-      const userLocs = getLocations().filter(loc => loc.createdBy === user.id);
-      setUserCreatedLocs(userLocs);
+      fetchLocations().then((locs) => {
+        const userLocs = locs.filter(loc => 
+          loc.createdBy === user.id || 
+          loc.createdBy === user._id || 
+          loc.createdBy === user.username
+        );
+        setUserCreatedLocs(userLocs);
+      });
     }
   }, [user]);
 
