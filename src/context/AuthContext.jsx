@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { getActiveUser, setActiveUser, getUsers } from '../utils/storage';
+import { API_BASE } from '../utils/api';
 
 const AuthContext = createContext();
 
@@ -30,7 +31,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     // Sync users from MongoDB backend
-    fetch('/api/users')
+    fetch(`${API_BASE}/users`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data && data.success && Array.isArray(data.data)) {
@@ -40,23 +41,28 @@ export const AuthProvider = ({ children }) => {
           }));
           setUsers(mappedUsers);
           localStorage.setItem('viewpoint_users', JSON.stringify(mappedUsers));
+          console.log('✅ [MongoDB API] Synced users:', mappedUsers.length);
         }
       })
-      .catch((err) => console.warn('User sync notice:', err.message));
+      .catch((err) => {
+        console.warn('⚠️ [MongoDB API] Could not sync users (backend not reachable):', err.message);
+      });
   }, []);
 
   const login = async (username) => {
     const formattedUsername = username.trim().toLowerCase();
+    console.log(`📡 [MongoDB API] Calling ${API_BASE}/users/login for: "${formattedUsername}"`);
 
     // 1. Authenticate / Create in MongoDB via Backend API
     try {
-      const res = await fetch('/api/users/login', {
+      const res = await fetch(`${API_BASE}/users/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: formattedUsername }),
       });
       const data = await res.json();
       if (data && data.success && data.data) {
+        console.log('✅ [MongoDB API] User stored in MongoDB Atlas:', data.data);
         const mongoUser = {
           ...data.data,
           id: data.data._id || data.data.id,
@@ -79,7 +85,8 @@ export const AuthProvider = ({ children }) => {
         return mongoUser;
       }
     } catch (err) {
-      console.warn('Backend login fallback to local:', err.message);
+      console.error('❌ [MongoDB API] Login request failed:', err.message);
+      console.warn('Make sure backend is running on http://localhost:5000 (run: npm run dev)');
     }
 
     // 2. Offline / local fallback
@@ -139,7 +146,7 @@ export const AuthProvider = ({ children }) => {
     const userId = user._id || user.id;
     if (userId) {
       try {
-        await fetch(`/api/users/${userId}`, {
+        await fetch(`${API_BASE}/users/${userId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updates),

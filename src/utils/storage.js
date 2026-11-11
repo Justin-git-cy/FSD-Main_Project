@@ -1,4 +1,5 @@
 import { INITIAL_CATEGORIES, INITIAL_LOCATIONS, INITIAL_REVIEWS, INITIAL_USERS } from './db';
+import { API_BASE } from './api';
 
 // LocalStorage Namespaces
 const KEYS = {
@@ -67,7 +68,7 @@ export const syncLocationsFromAPI = async () => {
 // Fetch locations from MongoDB Atlas backend API (with fallback)
 export const fetchLocations = async () => {
   try {
-    const res = await fetch('/api/locations');
+    const res = await fetch(`${API_BASE}/locations`);
     if (res.ok) {
       const json = await res.json();
       if (json.success && Array.isArray(json.data) && json.data.length > 0) {
@@ -110,7 +111,7 @@ export const addLocation = async (location) => {
 
   // Sync to MongoDB backend first
   try {
-    const res = await fetch('/api/locations', {
+    const res = await fetch(`${API_BASE}/locations`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(location),
@@ -161,7 +162,7 @@ export const upvoteLocation = async (locationId) => {
 
   // Sync to MongoDB backend
   try {
-    await fetch(`/api/locations/${locationId}/upvote`, { method: 'PATCH' });
+    await fetch(`${API_BASE}/locations/${locationId}/upvote`, { method: 'PATCH' });
   } catch (e) {
     // offline fallback
   }
@@ -183,7 +184,7 @@ export const verifyLocation = async (locationId) => {
 
   // Sync to MongoDB backend
   try {
-    await fetch(`/api/locations/${locationId}/verify`, { method: 'PATCH' });
+    await fetch(`${API_BASE}/locations/${locationId}/verify`, { method: 'PATCH' });
   } catch (e) {
     // offline fallback
   }
