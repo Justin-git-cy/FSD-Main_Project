@@ -26,7 +26,7 @@ import {
   upvoteLocation,
   verifyLocation,
 } from '../utils/storage';
-import { calculateDistance } from '../utils/scoring';
+import { calculateDistance, getActiveWeatherWarning } from '../utils/scoring';
 import { useReveal } from '../engine';
 import StarRating from '../components/StarRating';
 import './LocationDetail.css';
@@ -145,9 +145,8 @@ export default function LocationDetail() {
   }, [location, allLocations]);
 
   const activeWeatherWarning = useMemo(() => {
-    if (!location?.weatherWarnings) return null;
-    return location.weatherWarnings[climate.weather] || null;
-  }, [location, climate.weather]);
+    return getActiveWeatherWarning(location, climate);
+  }, [location, climate]);
 
   const handleUpvote = async () => {
     if (!location) return;

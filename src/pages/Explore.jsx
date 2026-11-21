@@ -8,7 +8,7 @@ import {
   upvoteLocation,
   verifyLocation,
 } from '../utils/storage';
-import { calculateDistance } from '../utils/scoring';
+import { calculateDistance, getActiveWeatherWarning } from '../utils/scoring';
 import {
   ArrowUpRight,
   Award,
@@ -238,7 +238,7 @@ export default function Explore() {
     mapInstanceRef.current?.flyTo([12.9716, 77.5946], 10, { duration: 0.9 });
   };
 
-  const activeWarning = selectedLoc?.weatherWarnings?.[climate.weather] || null;
+  const activeWarning = getActiveWeatherWarning(selectedLoc, climate);
 
   return (
     <div className="vp-explore">
@@ -359,6 +359,26 @@ export default function Explore() {
                   </span>
                 </div>
                 <p>{loc.description}</p>
+                {(() => {
+                  const locWarning = getActiveWeatherWarning(loc, climate);
+                  if (!locWarning) return null;
+                  const isSevere = locWarning.includes('DANGEROUS') || locWarning.includes('CRITICAL');
+                  return (
+                    <span
+                      className={`vp-badge ${isSevere ? 'vp-badge--pending' : 'vp-badge--verified'}`}
+                      style={{
+                        width: 'fit-content',
+                        fontSize: 10,
+                        background: isSevere ? 'rgba(181, 69, 52, 0.14)' : 'rgba(218, 128, 93, 0.16)',
+                        color: isSevere ? 'var(--vp-danger)' : 'var(--vp-warn-ink)',
+                        borderColor: isSevere ? 'rgba(181, 69, 52, 0.35)' : 'rgba(218, 128, 93, 0.4)',
+                      }}
+                    >
+                      <ShieldAlert size={11} aria-hidden="true" />
+                      {isSevere ? 'Hazard Alert' : 'Weather Advisory'}
+                    </span>
+                  );
+                })()}
                 <div className="vp-explore-card-foot">
                   <StarRating rating={loc.rating} px={12} />
                   <span>{loc.distanceKm} km · {loc.upvotes} votes</span>

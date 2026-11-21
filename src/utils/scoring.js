@@ -14,12 +14,36 @@ export const calculateDistance = (lat1, lon1, lat2, lon2) => {
 };
 
 /**
+ * Resolves the active terrain/climate hazard warning for a location under the simulated season and sky.
+ */
+export const getActiveWeatherWarning = (location, weather = {}) => {
+  if (!location) return null;
+  const { season, weather: weatherCondition } = weather;
+  const warningsObj = location.weatherWarnings || {};
+
+  if (warningsObj[weatherCondition]) {
+    return warningsObj[weatherCondition];
+  }
+
+  // During monsoon season, steep or low-monsoon-fit terrain triggers automated hazard advisories
+  const monsoonFit = location.seasonalSuitability?.monsoon;
+  if (season === 'monsoon' && monsoonFit !== undefined && monsoonFit <= 0.35) {
+    if (warningsObj.rainy) {
+      return warningsObj.rainy;
+    }
+    return 'WARNING: Steep or exposed terrain becomes slippery and hazardous during monsoon conditions.';
+  }
+
+  return null;
+};
+
+/**
  * Computes recommendation score for a location based on user preferences and current simulated weather.
- * Returns { score, distance, breakdown }
+ * Returns { score, distance, breakdown, warning }
  */
 export const calculateLocationScore = (location, preferences, weather) => {
   const { currentLocation, preferredCategories, preferredDifficulty, searchRadius } = preferences;
-  const { season, weather: weatherCondition } = weather;
+  const { season } = weather;
 
   let scoreBreakdown = {
     proximity: 0,
@@ -76,8 +100,8 @@ export const calculateLocationScore = (location, preferences, weather) => {
   scoreBreakdown.season = Math.round(25 * seasonSuitability);
 
   // 5. Weather Warning Safety Penalty
-  // If weather condition matches a specific warning and it is marked DANGEROUS or CRITICAL, apply a penalty.
-  const warning = location.weatherWarnings?.[weatherCondition];
+  // If weather condition or monsoon terrain rules trigger a warning, apply a hazard penalty.
+  const warning = getActiveWeatherWarning(location, weather);
   if (warning) {
     if (warning.includes('DANGEROUS') || warning.includes('CRITICAL')) {
       scoreBreakdown.safetyPenalty = -40; // Severe safety penalty
