@@ -51,3 +51,19 @@
   --z-curtain: 90;
   --z-skip: 1000;
 }
+
+/* Dark Display Mode Tokens (Low-Light & Night Exploration) */
+html.dark {
+  --vp-paper: #161e19;
+  --vp-paper-deep: #111813;
+  --vp-paper-light: #1d2721;
+  --vp-ink: #eeeade;
+  --vp-forest: #c2d67b;
+  --vp-muted: #a6b2a3;
+  --vp-line: rgba(238, 234, 222, 0.14);
+  --vp-line-strong: rgba(238, 234, 222, 0.24);
+  --vp-warn-ink: #f4b59c;
+  --vp-danger: #f07b68;
+  --vp-ok: #9ed28b;
+  color-scheme: dark;
+}

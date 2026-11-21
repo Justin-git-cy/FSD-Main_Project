@@ -751,6 +751,122 @@ html.motion [data-reveal] {
   line-height: 1.6;
 }
 
+/* Dark Display Mode Component & Contrast Overrides */
+html.dark .vp-page-hero,
+html.dark .vp-dossier-hero {
+  background: #0e1410;
+  color: #eeeade;
+}
+
+html.dark .vp-page-hero h1,
+html.dark .vp-telemetry-item strong {
+  color: #eeeade;
+}
+
+html.dark .vp-btn-dark {
+  background: var(--vp-accent);
+  border-color: var(--vp-accent);
+  color: var(--vp-accent-ink);
+}
+
+html.dark .vp-btn-dark:hover {
+  background: #d3e491;
+}
+
+html.dark .vp-btn-secondary {
+  background: var(--vp-paper-light);
+  color: var(--vp-ink);
+}
+
+html.dark .vp-btn-secondary:hover {
+  background: #27352c;
+  border-color: var(--vp-accent);
+}
+
+html.dark .vp-chip.is-active {
+  background: var(--vp-accent);
+  border-color: var(--vp-accent);
+  color: var(--vp-accent-ink);
+}
+
+html.dark .vp-badge--category {
+  background: #29372c;
+  color: #c2d67b;
+  border: 1px solid rgba(194, 214, 123, 0.28);
+}
+
+html.dark .vp-badge--verified {
+  background: rgba(158, 210, 139, 0.16);
+  color: #b7e2a8;
+  border-color: rgba(158, 210, 139, 0.35);
+}
+
+html.dark .vp-badge--pending {
+  background: rgba(218, 128, 93, 0.18);
+  color: #f4b59c;
+  border-color: rgba(218, 128, 93, 0.42);
+}
+
+html.dark .vp-input,
+html.dark .vp-select,
+html.dark .vp-textarea {
+  background: #111813;
+  color: #eeeade;
+  border-color: rgba(238, 234, 222, 0.24);
+}
+
+html.dark .vp-input::placeholder,
+html.dark .vp-textarea::placeholder {
+  color: #7d8a7c;
+}
+
+html.dark .vp-input:focus,
+html.dark .vp-select:focus,
+html.dark .vp-textarea:focus {
+  border-color: var(--vp-accent);
+  box-shadow: 0 0 0 3px rgba(194, 214, 123, 0.18);
+}
+
+html.dark .vp-alert--danger {
+  background: rgba(240, 123, 104, 0.15);
+  border-color: rgba(240, 123, 104, 0.45);
+  color: #ffd0c7;
+}
+
+html.dark .vp-alert--warn {
+  background: rgba(218, 128, 93, 0.16);
+  border-color: rgba(218, 128, 93, 0.45);
+  color: #f9d1bf;
+}
+
+html.dark .vp-alert--ok {
+  background: rgba(158, 210, 139, 0.15);
+  border-color: rgba(158, 210, 139, 0.42);
+  color: #cbeec0;
+}
+
+html.dark .vp-upvote-btn {
+  color: #eeeade;
+}
+
+html.dark .vp-inline-link {
+  color: var(--vp-accent);
+}
+
+/* Leaflet.js Dark Mode Tile Adaptation */
+html.dark .leaflet-tile-pane {
+  filter: invert(100%) hue-rotate(180deg) brightness(92%) contrast(88%);
+}
+
+html.dark .leaflet-control-attribution {
+  background: rgba(19, 26, 22, 0.85) !important;
+  color: #a6b2a3 !important;
+}
+
+html.dark .leaflet-control-attribution a {
+  color: #c2d67b !important;
+}
+
 /* Reduced Motion Guarantee */
 @media (prefers-reduced-motion: reduce) {
   *,

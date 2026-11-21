@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Compass, TrendingUp, PlusCircle, Settings, LogOut, LogIn, Sparkles, Award } from 'lucide-react';
+import { Compass, TrendingUp, PlusCircle, Settings, LogOut, LogIn, Sparkles, Award, Sun, Moon } from 'lucide-react';
 import { onScroll, startScroll, stopScroll } from '../engine';
 import WeatherSimulator from './WeatherSimulator';
 import './Navbar.css';
@@ -14,7 +14,7 @@ const navItems = [
 ];
 
 export default function Navbar() {
-  const { user, logout } = useAuth();
+  const { user, logout, theme, toggleTheme } = useAuth();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const toggleBtnRef = useRef(null);
@@ -89,6 +89,17 @@ export default function Navbar() {
           </nav>
 
           <div className="vp-account-area">
+            <button
+              type="button"
+              className="vp-theme-toggle"
+              onClick={toggleTheme}
+              aria-label={theme === 'dark' ? 'Switch to light display mode' : 'Switch to dark display mode'}
+              aria-pressed={theme === 'dark'}
+              title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            >
+              {theme === 'dark' ? <Sun size={15} aria-hidden="true" /> : <Moon size={15} aria-hidden="true" />}
+              <span>{theme === 'dark' ? 'Light' : 'Dark'}</span>
+            </button>
             {user ? (
               <>
                 <Link to="/profile" className="vp-account" onClick={closeMenu}>
@@ -158,6 +169,10 @@ export default function Navbar() {
           ))}
           {user ? (
             <div className="vp-mobile-extras">
+              <button type="button" onClick={toggleTheme} tabIndex={mobileMenuOpen ? 0 : -1}>
+                {theme === 'dark' ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
+                {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+              </button>
               <Link to="/profile" onClick={closeMenu} tabIndex={mobileMenuOpen ? 0 : -1}>
                 Profile
               </Link>
@@ -169,9 +184,15 @@ export default function Navbar() {
               </button>
             </div>
           ) : (
-            <Link to="/login" className="vp-mobile-sign-in" onClick={closeMenu} tabIndex={mobileMenuOpen ? 0 : -1}>
-              <LogIn size={17} aria-hidden="true" /> Sign in to ViewPoint
-            </Link>
+            <div className="vp-mobile-extras">
+              <button type="button" onClick={toggleTheme} tabIndex={mobileMenuOpen ? 0 : -1}>
+                {theme === 'dark' ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
+                {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+              </button>
+              <Link to="/login" className="vp-mobile-sign-in" onClick={closeMenu} tabIndex={mobileMenuOpen ? 0 : -1}>
+                <LogIn size={17} aria-hidden="true" /> Sign in to ViewPoint
+              </Link>
+            </div>
           )}
           <div className="vp-mobile-foot">
             BENGALURU OUTSKIRTS <span>12°58′ N / 77°35′ E</span>

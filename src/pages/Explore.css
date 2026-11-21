@@ -125,6 +125,35 @@
   box-shadow: inset 3px 0 0 var(--vp-forest);
 }
 
+html.dark .vp-explore-card.is-selected {
+  background: #25332a;
+}
+
+html.dark .vp-explore-head {
+  background: #0e1410;
+  color: #eeeade;
+}
+
+html.dark .vp-explore-head h1 {
+  color: #eeeade;
+}
+
+html.dark .vp-map-overlay-card {
+  background: rgba(22, 30, 25, 0.96);
+  border-color: rgba(194, 214, 123, 0.45);
+  color: #eeeade;
+}
+
+html.dark .custom-map-tooltip {
+  background-color: #161e19 !important;
+  border-color: #c2d67b !important;
+  color: #eeeade !important;
+}
+
+html.dark .leaflet-tooltip-top:before {
+  border-top-color: #c2d67b !important;
+}
+
 .vp-explore-card-top {
   display: flex;
   justify-content: space-between;
