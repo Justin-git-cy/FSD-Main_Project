@@ -1,70 +1,75 @@
-# Getting Started with Create React App
+# ViewPoint — Bangalore Field Guide
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+**A Climate-Aware Web Exploration Platform for Off-Beat Trails and Heritage Sites in Bangalore**
 
-## Available Scripts
+ViewPoint is a full-stack web application built for adventure travelers in and around Bengaluru to discover, evaluate, and share hidden trekking trails, urban ruins, and historic sights. Unlike static navigation directories, ViewPoint combines an interactive **Leaflet.js** map over OpenStreetMap tiles with a **100-point dynamic climate-weighted scoring engine** backed by **MongoDB** and **Express.js**.
 
-In the project directory, you can run:
+---
 
-### `npm start`
+## Key Features
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- **Interactive Field Atlas (Leaflet.js + OpenStreetMap):** Visualizes 21 off-beat Bangalore locations (19 verified sights + 2 pending community submissions) with color-coded markers for **Trails**, **Historic Sights**, and **Abandoned & Ruins**, paired with a searchable sidebar and live hazard badges.
+- **Dynamic Climate-Weighted Scoring Engine:** Ranks destinations using a transparent 100-point composite score:
+  ```text
+  S = Proximity (30) + Difficulty (25) + Category (20) + SeasonFit (25) - HazardPenalty
+  ```
+  Powered by Haversine geodesic distance computation (`R = 6,371 km`), preferred difficulty matching (`easy` / `medium` / `hard`), category affinity, seasonal suitability, and automated monsoon/rain safety penalties.
+- **Real-Time Weather Simulations & Hazard Warnings:** Configurable **Season** (`Winter`, `Summer`, `Monsoon`) and **Sky** (`Clear`, `Rain`, `Cloudy`, `Misty`) selectors in the Field Conditions bar immediately recalculate route rankings and surface terrain-specific hazard advisories (such as slippery steep granite monoliths during monsoon rain).
+- **Community Coordinate Verification & Reviews:** Authenticated **Explorer** and **Pathfinder** sessions can pin unmapped coordinates via click-to-pin Leaflet.js mapping, configure seasonal fit sliders and weather warnings, verify pending discoveries, upvote sights in the **Trending Sights Registry**, and post 1–5 star field reviews.
+- **Adaptive Usability Controls:** Configurable Bangalore **GPS presets** and custom map-click anchors with search radius visualization, plus persistent **Light & Dark display modes** in the navigation bar with dark-adapted Leaflet tiles.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+---
 
-### `npm test`
+## Tech Stack
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- **Frontend:** React 19, React Router v6, Leaflet.js, OpenStreetMap tiles, Lucide React, GSAP, Lenis, CSS custom properties (Light/Dark tokens)
+- **Backend:** Node.js, Express.js, Mongoose ODM
+- **Database:** MongoDB (with offline LocalStorage fallback for deterministic testing)
 
-### `npm run build`
+---
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Getting Started
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Prerequisites
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+- Node.js 18+
+- MongoDB connection URI configured in `backend/.env` (`MONGO_URI`)
 
-### `npm run eject`
+### Install Dependencies
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+```bash
+npm install
+npm install --prefix backend
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### Seed the Bangalore Atlas Database (Optional)
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+```bash
+npm run seed --prefix backend
+```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### Run Development Servers (Frontend + Backend)
 
-## Learn More
+```bash
+npm run dev
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+- Frontend: `http://localhost:3000`
+- Backend API: `http://localhost:5000/api`
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### Run Verification Tests & Production Build
 
-### Code Splitting
+```bash
+CI=true npm test -- --watchAll=false
+npm run build
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+---
 
-### Analyzing the Bundle Size
+## Project Credits
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+Developed as a Full Stack Web Development project at the **School of Computer Science and Engineering (SoCSE), RV University, Bengaluru** (BCA, 2026–2027):
 
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- **Akash Singh Bisht** (`1RUA24BCA0006`)
+- **Justin** (`1RUA24BCA0041`)
+- **Guided by:** Prof. Mohammed Danish, SoCSE, RV University
