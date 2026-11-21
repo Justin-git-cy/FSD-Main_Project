@@ -41,22 +41,17 @@ Chosen: **Contour field guide**, because one map language can carry discovery, l
 - **Type:** Zodiak for expressive display lines and General Sans for navigation, reading, and controls. Both WOFF2 families are stored in `public/fonts` and served locally. No italic or ultra bold type.
 - **Grid:** 12 columns on desktop with wide outer margins; 4 columns on phones. The home page alternates asymmetrical map, statement, image index, field illustration, and process layouts.
 - **Shape:** Square corners for the field panels; circular marks are reserved for waypoints and the field code stamp.
-- **Motion:** The navigation responds with short, weighted depth shifts. The hero map tilts away while image, contours, and place markers separate in depth, then the statement surface advances and the story route continues through three chapters. The route dash drifts at rest; section content reveals once with IntersectionObserver. Reduced motion disables movement and shows all copy.
+- **Motion:** Single-clock GSAP + Lenis engine (`src/engine/`). Navigation triggers a fast Contour Survey Sweep curtain with focus/title management and a `2px` scroll progress thread along the header. The hero map tilts smoothly with an ambient pointer/tick idle driver (pausing off screen), then folds into depth during scroll scrub. Statement words illuminate scrubbed to scroll; the three-act trail story traces the SVG route across 3D depth plates; conditions ridge layers parallax and respond visually to weather/season; the Field Archive ledger reveals floating photo previews on fine pointers; and the Field Code stamp rotates on scroll. Under `prefers-reduced-motion: reduce)`, Lenis, idle motion, pinning, and scroll scrubbing turn off while keeping all copy visible.
 
-## Home page outline
+## Full-stack page architecture
 
-```text
-Full viewport hero: statement + illustrated route map + explore action
-Hero to statement: pinned 3D map transition, no ticker
-Statement: word by word benefit reveal
-Three act story: scroll driven 3D map and changing field notes
-Discoveries: filterable, upvotable reviewed places
-Conditions: season and weather simulator with advisory
-How it works: browse → check conditions → share
-Field code: care and access guidance
-FAQ: native disclosure list
-Closing: return to the map
-```
+- `/` (`Home.jsx`): Scroll-choreographed Contour Field Guide with asymmetric 5-card discoveries, cursor-following Field Archive ledger, reactive climate matches, and live community telemetry.
+- `/location/:id` (`LocationDetail.jsx`): Full location dossier with multi-photo switcher, seasonal suitability meters, live weather advisories, embedded sector Leaflet map, nearby distances, and interactive MongoDB community reviews.
+- `/explore` (`Explore.jsx`): Full-viewport interactive Leaflet Field Atlas with custom contour pins, weather notes, category/status filters, and mobile list/map switcher.
+- `/trending` (`Trending.jsx`): Ranked community podium and searchable verified registry.
+- `/recommendations` (`Recommendations.jsx`): Server-scored (`POST /api/locations/recommendations`) seasonal match feed with SVG score rings and 4-factor breakdowns.
+- `/add-location` (`AddLocation.jsx`): Interactive click-to-pin coordinate form with live card preview posting to MongoDB.
+- `/profile` (`Profile.jsx`), `/login` (`Login.jsx`), `/settings` (`Settings.jsx`), `/preferences` (`Preferences.jsx`), `*` (`NotFound.jsx`): Complete explorer ledger, MongoDB user auth/profile updates, live Leaflet radius visualizer, and live-preview trail interest calibrator.
 
 ## Content and limitations
 

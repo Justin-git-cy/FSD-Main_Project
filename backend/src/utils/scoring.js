@@ -59,7 +59,12 @@ const calculateLocationScore = (location, preferences, weather) => {
 
   // 3. Category Preference (Max 20 pts)
   const categoryId = location.category?._id?.toString() || location.category?.toString();
-  if (preferredCategories && preferredCategories.includes(categoryId)) {
+  const categorySlugKey = location.category?.slug ? `cat_${location.category.slug}` : null;
+  if (
+    preferredCategories &&
+    (preferredCategories.includes(categoryId) ||
+      (categorySlugKey && preferredCategories.includes(categorySlugKey)))
+  ) {
     scoreBreakdown.category = 20;
   }
 

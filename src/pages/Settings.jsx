@@ -1,245 +1,301 @@
-import React, { useState, useEffect } from 'react';
-import { getPreferences, savePreferences, getActiveUser } from '../utils/storage';
-import { Settings as SettingsIcon, Navigation, ShieldCheck, MapPin, Save } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  MapPin,
+  Navigation,
+  Save,
+  Settings as SettingsIcon,
+  ShieldCheck,
+  Sliders,
+} from 'lucide-react';
+import {
+  fetchLocations,
+  getActiveUser,
+  getPreferences,
+  savePreferences,
+} from '../utils/storage';
+import { calculateDistance } from '../utils/scoring';
+import './Calibration.css';
 
 const MOCK_COORDS = [
-  { name: 'Bangalore Center (MG Road)', lat: 12.9740, lng: 77.6010 },
+  { name: 'Bangalore Center (MG Road)', lat: 12.974, lng: 77.601 },
   { name: 'Whitefield (East Bangalore)', lat: 12.9698, lng: 77.7499 },
   { name: 'Yelahanka (North Bangalore)', lat: 13.1007, lng: 77.5963 },
   { name: 'Kengeri (Southwest Bangalore)', lat: 12.9004, lng: 77.4828 },
-  { name: 'Nelamangala (Northwest Bangalore)', lat: 13.0964, lng: 77.3912 }
+  { name: 'Nelamangala (Northwest Bangalore)', lat: 13.0964, lng: 77.3912 },
 ];
 
 export default function Settings() {
-  const [preferences, setPrefs] = useState({
-    searchRadius: 50,
-    currentLocation: { lat: 12.9740, lng: 77.6010 }
-  });
-  
-  const [latInput, setLatInput] = useState('12.9740');
-  const [lngInput, setLngInput] = useState('77.6010');
+  const [preferences, setPrefs] = useState(getPreferences());
+  const [locations, setLocations] = useState([]);
+  const [latInput, setLatInput] = useState(String(getPreferences().currentLocation.lat));
+  const [lngInput, setLngInput] = useState(String(getPreferences().currentLocation.lng));
   const [successMsg, setSuccessMsg] = useState('');
+
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const markerRef = useRef(null);
+  const circleRef = useRef(null);
 
   useEffect(() => {
     const activePrefs = getPreferences();
     setPrefs(activePrefs);
-    setLatInput(activePrefs.currentLocation.lat.toString());
-    setLngInput(activePrefs.currentLocation.lng.toString());
+    setLatInput(String(activePrefs.currentLocation.lat));
+    setLngInput(String(activePrefs.currentLocation.lng));
+    fetchLocations().then((locs) => setLocations(locs));
   }, []);
 
-  const handleSelectPredefined = (item) => {
-    setLatInput(item.lat.toString());
-    setLngInput(item.lng.toString());
-    
-    const updated = {
-      ...preferences,
-      currentLocation: { lat: item.lat, lng: item.lng }
+  // Initialize Radius Visualization Map
+  useEffect(() => {
+    if (!mapRef.current || !window.L) return undefined;
+
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
+    }
+
+    const { lat, lng } = preferences.currentLocation;
+    const map = window.L.map(mapRef.current, { scrollWheelZoom: false }).setView([lat, lng], 9);
+    mapInstanceRef.current = map;
+
+    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '© OpenStreetMap contributors',
+    }).addTo(map);
+
+    const pin = window.L.divIcon({
+      html: `<div style="width:18px;height:18px;border-radius:50%;background:#c2d67b;border:3px solid #131a16;"></div>`,
+      className: 'vp-gps-pin',
+      iconSize: [18, 18],
+      iconAnchor: [9, 9],
+    });
+    markerRef.current = window.L.marker([lat, lng], { icon: pin }).addTo(map);
+    circleRef.current = window.L.circle([lat, lng], {
+      radius: (preferences.searchRadius || 60) * 1000,
+      color: '#29372c',
+      fillColor: '#c2d67b',
+      fillOpacity: 0.22,
+      weight: 2,
+    }).addTo(map);
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Update circle and marker dynamically
+  useEffect(() => {
+    const { lat, lng } = preferences.currentLocation;
+    if (markerRef.current && circleRef.current && mapInstanceRef.current) {
+      markerRef.current.setLatLng([lat, lng]);
+      circleRef.current.setLatLng([lat, lng]);
+      circleRef.current.setRadius((preferences.searchRadius || 60) * 1000);
+      mapInstanceRef.current.panTo([lat, lng]);
+    }
+  }, [preferences.currentLocation, preferences.searchRadius]);
+
+  const spotsWithinRadius = useMemo(() => {
+    return locations.filter(
+      (loc) =>
+        calculateDistance(
+          preferences.currentLocation.lat,
+          preferences.currentLocation.lng,
+          loc.lat,
+          loc.lng
+        ) <= preferences.searchRadius
+    ).length;
+  }, [locations, preferences]);
+
+  const triggerNotice = (msg) => {
+    setSuccessMsg(msg);
+    setTimeout(() => setSuccessMsg(''), 3200);
+  };
+
+  const handleSelectPredefined = (item) => {
+    setLatInput(String(item.lat));
+    setLngInput(String(item.lng));
+    const updated = savePreferences({
+      ...preferences,
+      currentLocation: { lat: item.lat, lng: item.lng },
+    });
     setPrefs(updated);
-    savePreferences(updated);
-    triggerNotice('Coordinates simulated: ' + item.name);
+    triggerNotice(`GPS anchor updated to ${item.name}.`);
   };
 
   const handleSaveCustom = (e) => {
     e.preventDefault();
     const lat = parseFloat(latInput);
     const lng = parseFloat(lngInput);
-
     if (isNaN(lat) || isNaN(lng)) {
-      alert('Please enter valid numerical coordinates.');
+      triggerNotice('Please enter valid numeric latitude and longitude.');
       return;
     }
-
-    const updated = {
+    const updated = savePreferences({
       ...preferences,
-      currentLocation: { lat, lng }
-    };
+      currentLocation: { lat, lng },
+    });
     setPrefs(updated);
-    savePreferences(updated);
-    triggerNotice('Custom coordinates saved successfully.');
+    triggerNotice('Custom coordinates saved to explorer settings.');
   };
 
   const handleRadiusChange = (e) => {
-    const radius = parseInt(e.target.value);
-    const updated = {
-      ...preferences,
-      searchRadius: radius
-    };
+    const radius = parseInt(e.target.value, 10);
+    const updated = savePreferences({ ...preferences, searchRadius: radius });
     setPrefs(updated);
-    savePreferences(updated);
-    triggerNotice(`Search radius updated to ${radius} km.`);
-  };
-
-  const triggerNotice = (msg) => {
-    setSuccessMsg(msg);
-    setTimeout(() => {
-      setSuccessMsg('');
-    }, 3000);
+    triggerNotice(`Search boundary set to ${radius} km.`);
   };
 
   const activeUser = getActiveUser();
 
   return (
-    <div className="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white min-h-screen py-10 px-4 sm:px-6 lg:px-8 font-sans transition-colors duration-300">
-      <div className="max-w-3xl mx-auto space-y-6">
-        
-        {/* Header */}
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 bg-adventure-500/10 rounded-2xl flex items-center justify-center text-adventure-500 dark:text-adventure-400">
-            <SettingsIcon className="h-6 w-6" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold">Explorer Simulation Settings</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Simulate navigation coordinates to verify distance calculations in our scoring engine.</p>
-          </div>
+    <div className="vp-page">
+      <section className="vp-page-hero">
+        <svg className="vp-page-hero-contours" viewBox="0 0 600 400" aria-hidden="true">
+          {[0, 1, 2, 3, 4].map((ring) => (
+            <ellipse
+              key={ring}
+              cx="390"
+              cy="190"
+              rx={80 + ring * 50}
+              ry={52 + ring * 30}
+              transform="rotate(-24 390 190)"
+              fill="none"
+              stroke="rgba(194, 214, 123, 0.24)"
+              strokeWidth="1"
+            />
+          ))}
+        </svg>
+        <div className="vp-container">
+          <span className="vp-eyebrow"><span className="vp-eyebrow-dot" /> Calibration Desk</span>
+          <h1>GPS &amp; Search Radius</h1>
+          <p className="vp-page-hero-lead">
+            Simulate starting coordinates across Bangalore and set your travel radius for recommendation distance scoring.
+          </p>
+
+          <nav className="vp-cal-tabs" aria-label="Calibration sections">
+            <Link to="/settings" className="vp-cal-tab is-active" aria-current="page">
+              <SettingsIcon size={15} aria-hidden="true" /> GPS &amp; Radius
+            </Link>
+            <Link to="/preferences" className="vp-cal-tab">
+              <Sliders size={15} aria-hidden="true" /> Trail Interests
+            </Link>
+          </nav>
         </div>
+      </section>
 
-        {/* Success Alert */}
-        {successMsg && (
-          <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-300 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400 p-3 rounded-xl text-xs font-semibold flex items-center gap-2">
-            <ShieldCheck className="h-4.5 w-4.5 flex-shrink-0" />
-            <span>{successMsg}</span>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
-          {/* Preset Coordinates */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 space-y-4 md:col-span-2 transition-colors">
-            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-450 dark:text-slate-400 flex items-center gap-1">
-              <Navigation className="h-4 w-4 text-adventure-500 dark:text-adventure-400" />
-              Simulated Location Presets
-            </h3>
-            
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-              Click a preset below to instantly warp your explorer coordinates. This affects distances shown on the Explore page and rankings on Recommendations.
-            </p>
-
-            <div className="space-y-2 pt-2">
-              {MOCK_COORDS.map((item, idx) => {
-                const isSelected = 
-                  Math.abs(preferences.currentLocation.lat - item.lat) < 0.001 &&
-                  Math.abs(preferences.currentLocation.lng - item.lng) < 0.001;
-
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => handleSelectPredefined(item)}
-                    className={`w-full text-left p-3 rounded-xl border text-xs flex justify-between items-center transition ${
-                      isSelected 
-                        ? 'bg-adventure-500/10 border-adventure-500 font-bold text-slate-900 dark:text-white shadow-sm' 
-                        : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-850 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-800 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <MapPin className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
-                      {item.name}
-                    </span>
-                    <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500">
-                      {item.lat.toFixed(4)}, {item.lng.toFixed(4)}
-                    </span>
-                  </button>
-                );
-              })}
+      <section className="vp-section">
+        <div className="vp-container">
+          {successMsg && (
+            <div className="vp-alert vp-alert--ok" style={{ marginBottom: 22 }} role="status">
+              <ShieldCheck size={17} aria-hidden="true" />
+              <span>{successMsg}</span>
             </div>
+          )}
 
-            {/* Custom Coordinates Form */}
-            <form onSubmit={handleSaveCustom} className="border-t border-slate-100 dark:border-slate-800/80 pt-4 space-y-3">
-              <span className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-450 dark:text-slate-400">Or Input Custom Coordinates</span>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] text-slate-400 mb-1">Latitude</label>
-                  <input
-                    type="text"
-                    value={latInput}
-                    onChange={(e) => setLatInput(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 text-slate-950 dark:text-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-adventure-500 font-mono transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-slate-400 mb-1">Longitude</label>
-                  <input
-                    type="text"
-                    value={lngInput}
-                    onChange={(e) => setLngInput(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-850 text-slate-950 dark:text-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-adventure-500 font-mono transition-colors"
-                  />
+          <div className="vp-cal-grid">
+            <div className="vp-panel" style={{ display: 'grid', gap: 22 }}>
+              <div>
+                <span className="vp-eyebrow vp-eyebrow--light">
+                  <Navigation size={13} aria-hidden="true" /> Preset Starting Anchors
+                </span>
+                <div className="vp-preset-list">
+                  {MOCK_COORDS.map((item) => {
+                    const isSelected =
+                      Math.abs(preferences.currentLocation.lat - item.lat) < 0.001 &&
+                      Math.abs(preferences.currentLocation.lng - item.lng) < 0.001;
+                    return (
+                      <button
+                        key={item.name}
+                        type="button"
+                        onClick={() => handleSelectPredefined(item)}
+                        className={`vp-preset-btn${isSelected ? ' is-active' : ''}`}
+                        aria-pressed={isSelected}
+                      >
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                          <MapPin size={15} aria-hidden="true" /> {item.name}
+                        </span>
+                        <span style={{ fontSize: 12, color: 'var(--vp-muted)' }}>
+                          {item.lat.toFixed(4)}, {item.lng.toFixed(4)}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              <button
-                type="submit"
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-800 dark:text-white font-bold py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors"
-              >
-                <Save className="h-3.5 w-3.5 text-adventure-500 dark:text-adventure-400" />
-                <span>Save Custom Coordinate Node</span>
-              </button>
-            </form>
-          </div>
+              <form onSubmit={handleSaveCustom} style={{ display: 'grid', gap: 14, paddingTop: 18, borderTop: '1px solid var(--vp-line)' }}>
+                <span className="vp-eyebrow vp-eyebrow--light">Custom Coordinates</span>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="vp-field">
+                    <label htmlFor="gps-lat" className="vp-label">Latitude</label>
+                    <input
+                      id="gps-lat"
+                      type="text"
+                      className="vp-input"
+                      value={latInput}
+                      onChange={(e) => setLatInput(e.target.value)}
+                    />
+                  </div>
+                  <div className="vp-field">
+                    <label htmlFor="gps-lng" className="vp-label">Longitude</label>
+                    <input
+                      id="gps-lng"
+                      type="text"
+                      className="vp-input"
+                      value={lngInput}
+                      onChange={(e) => setLngInput(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <button type="submit" className="vp-btn-dark">
+                  <Save size={15} aria-hidden="true" /> Save Custom GPS Anchor
+                </button>
+              </form>
+            </div>
 
-          {/* Right Column: Search Radius & Meta */}
-          <div className="space-y-6">
-            
-            {/* Search Radius settings */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 space-y-3 transition-colors">
-              <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-450 dark:text-slate-400">Search Radius</h3>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                Determine the maximum boundary for nearby trekking recommendations.
-              </p>
-              
-              <div className="pt-2">
+            <div style={{ display: 'grid', gap: 20 }}>
+              <div className="vp-panel" style={{ display: 'grid', gap: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span className="vp-eyebrow vp-eyebrow--light">Radius Boundary</span>
+                  <strong style={{ fontSize: 14 }}>{preferences.searchRadius} km</strong>
+                </div>
+                <label htmlFor="radius-range" className="sr-only">Search radius in kilometers</label>
                 <input
+                  id="radius-range"
                   type="range"
                   min="20"
                   max="120"
                   step="10"
                   value={preferences.searchRadius}
                   onChange={handleRadiusChange}
-                  className="w-full h-1 bg-slate-200 dark:bg-slate-950 rounded-lg appearance-none cursor-pointer accent-adventure-500"
+                  className="vp-range"
                 />
-                <div className="flex justify-between text-[10px] text-slate-500 mt-2 font-mono">
-                  <span>20 km</span>
-                  <span className="text-adventure-650 dark:text-adventure-400 font-bold">{preferences.searchRadius} km active</span>
-                  <span>120 km</span>
+                <div ref={mapRef} className="vp-radius-map" data-lenis-prevent />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--vp-muted)', fontWeight: 600 }}>
+                  <span>{spotsWithinRadius} mapped spots within {preferences.searchRadius} km</span>
+                  <Link to="/recommendations" className="vp-inline-link">See matches</Link>
                 </div>
               </div>
-            </div>
 
-            {/* Profile Status */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 space-y-3 transition-colors">
-              <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-450 dark:text-slate-400">Explorer Profile</h3>
-              {activeUser ? (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <img
-                      src={activeUser.avatar}
-                      alt="avatar"
-                      className="h-8 w-8 rounded-full border border-adventure-500 bg-slate-100 dark:bg-slate-950 p-0.5"
-                    />
-                    <div>
-                      <span className="block text-xs font-bold leading-none">{activeUser.username}</span>
-                      <span className="text-[9px] uppercase tracking-wider font-extrabold text-adventure-600 dark:text-adventure-400 mt-0.5 block">{activeUser.role} credentials</span>
-                    </div>
-                  </div>
-                  <Link
-                    to="/profile"
-                    className="block text-center bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-850 border border-slate-200 dark:border-slate-850 rounded-lg py-1.5 text-[10px] font-bold text-slate-600 dark:text-slate-300 transition-colors"
-                  >
-                    View Biography Profile
-                  </Link>
+              <div className="vp-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                <div>
+                  <span className="vp-eyebrow vp-eyebrow--light">Active Account</span>
+                  <p style={{ margin: '4px 0 0', fontSize: 14, fontWeight: 700 }}>
+                    {activeUser ? `@${activeUser.username} (${activeUser.role})` : 'Guest Explorer'}
+                  </p>
                 </div>
-              ) : (
-                <p className="text-xs text-slate-500">Not logged in.</p>
-              )}
+                <Link to={activeUser ? '/profile' : '/login'} className="vp-btn-secondary">
+                  {activeUser ? 'Open Profile' : 'Sign In'}
+                </Link>
+              </div>
             </div>
-
           </div>
-
         </div>
-
-      </div>
+      </section>
     </div>
   );
 }

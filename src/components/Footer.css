@@ -33,10 +33,11 @@
 .vp-footer-column { display: flex; flex-direction: column; align-items: flex-start; gap: 13px; }
 .vp-footer-column h2 { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 4px; color: #dce1d3; font-size: 11px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
 .vp-footer-column h2 svg { color: var(--footer-accent); }
-.vp-footer-column > a { color: #aeb8aa; font-size: 14px; line-height: 1.4; text-decoration: none; transition: color 250ms, transform 400ms cubic-bezier(.22,1,.36,1); }
+.vp-footer-column > a { display: inline-flex; min-height: 36px; align-items: center; color: #aeb8aa; font-size: 14px; line-height: 1.4; text-decoration: none; transition: color 250ms, transform 400ms cubic-bezier(.22,1,.36,1); }
 .vp-footer-column > a:hover { transform: translateX(4px); color: var(--footer-accent); }
 .vp-footer-care { max-width: 330px; }
 .vp-footer-care p { margin: 0; color: #aeb8aa; font-size: 14px; line-height: 1.65; text-wrap: pretty; }
+.vp-footer-colophon { margin-top: 8px; color: #849083; font-size: 11px; letter-spacing: 0.04em; }
 .vp-footer-bottom { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding-top: 18px; border-top: 1px solid var(--footer-line); color: #849083; font-size: 11px; }
 .vp-footer-bottom-mark { display: inline-flex; align-items: center; gap: 8px; color: #a3ae9e; font-size: 9px; font-weight: 800; letter-spacing: .12em; }
 .vp-footer-bottom-mark i { width: 4px; height: 4px; border-radius: 50%; background: var(--footer-accent); }

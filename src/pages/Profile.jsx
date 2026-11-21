@@ -1,20 +1,51 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { fetchLocations } from '../utils/storage';
-import { User, Calendar, Award, Edit3, MapPin, CheckCircle, ShieldAlert, Sun, Moon, Mail, Image } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Award,
+  Calendar,
+  CheckCircle,
+  Edit3,
+  Mail,
+  MapPin,
+  ShieldAlert,
+  User,
+} from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import {
+  fetchLocations,
+  fetchReviewsByUser,
+  verifyLocation,
+} from '../utils/storage';
+import { useReveal } from '../engine';
+import StarRating from '../components/StarRating';
+import './Profile.css';
 
 export default function Profile() {
-  const { user, updateUserProfile, theme, toggleTheme } = useAuth();
+  const { user, updateUserProfile } = useAuth();
+  const pageRef = useRef(null);
+
   const [isEditing, setIsEditing] = useState(false);
-  const [userCreatedLocs, setUserCreatedLocs] = useState([]);
-  
-  // Form fields
+  const [allLocations, setAllLocations] = useState([]);
+  const [userReviews, setUserReviews] = useState([]);
+
+  // Edit fields
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [avatar, setAvatar] = useState('');
   const [bioText, setBioText] = useState('');
   const [validationError, setValidationError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const loadLedger = useCallback(async () => {
+    if (!user) return;
+    const [locs, revs] = await Promise.all([
+      fetchLocations(),
+      fetchReviewsByUser(user._id || user.id || user.username),
+    ]);
+    setAllLocations(locs);
+    setUserReviews(revs);
+  }, [user]);
 
   useEffect(() => {
     if (user) {
@@ -22,255 +53,374 @@ export default function Profile() {
       setEmail(user.email || '');
       setAvatar(user.avatar || '');
       setBioText(user.bio || '');
-      
-      fetchLocations().then((locs) => {
-        const userLocs = locs.filter(loc => 
-          loc.createdBy === user.id || 
-          loc.createdBy === user._id || 
-          loc.createdBy === user.username
-        );
-        setUserCreatedLocs(userLocs);
-      });
+      loadLedger();
     }
-  }, [user]);
+  }, [user, loadLedger]);
 
-  if (!user) {
-    return (
-      <div className="bg-slate-50 dark:bg-slate-950 min-h-[70vh] flex flex-col items-center justify-center text-slate-900 dark:text-white px-4 font-sans transition-colors duration-300">
-        <ShieldAlert className="h-12 w-12 text-amber-500 mb-4" />
-        <h2 className="text-xl font-bold mb-2">Access Denied</h2>
-        <p className="text-slate-500 dark:text-slate-400 text-xs mb-6 text-center max-w-sm">You must be connected to an explorer node to view credentials.</p>
-        <Link to="/login" className="bg-adventure-500 hover:bg-adventure-400 transition text-white px-5 py-2 rounded-xl text-sm font-bold shadow-md">
-          Sign In
-        </Link>
-      </div>
+  useReveal(pageRef, [allLocations.length, userReviews.length]);
+
+  const userCreatedLocs = useMemo(() => {
+    if (!user) return [];
+    return allLocations.filter(
+      (loc) =>
+        loc.createdBy === user.id ||
+        loc.createdBy === user._id ||
+        loc.createdById === user.id ||
+        loc.createdById === user._id ||
+        loc.createdByUsername === user.username
     );
-  }
+  }, [allLocations, user]);
 
-  const handleSave = () => {
+  const pendingSpots = useMemo(
+    () => allLocations.filter((loc) => loc.verificationStatus === 'pending'),
+    [allLocations]
+  );
+
+  const totalUpvotesReceived = useMemo(
+    () => userCreatedLocs.reduce((sum, loc) => sum + (loc.upvotes || 0), 0),
+    [userCreatedLocs]
+  );
+
+  const handleSave = async (e) => {
+    e.preventDefault();
     if (!fullName.trim()) {
-      setValidationError('Full Name cannot be empty.');
+      setValidationError('Full name cannot be empty.');
       return;
     }
     if (!email.trim() || !email.includes('@')) {
       setValidationError('Please enter a valid email address.');
       return;
     }
-    
+
     setValidationError('');
-    updateUserProfile({
+    setSaving(true);
+    await updateUserProfile({
       fullName: fullName.trim(),
       email: email.trim(),
       avatar: avatar.trim(),
-      bio: bioText.trim()
+      bio: bioText.trim(),
     });
+    setSaving(false);
     setIsEditing(false);
   };
 
   const handleCycleAvatarSeed = () => {
-    // Generate a random seed for the Dicebear avatar
-    const randomSeed = Math.random().toString(36).substring(7);
+    const randomSeed = Math.random().toString(36).substring(2, 9);
     setAvatar(`https://api.dicebear.com/7.x/adventurer/svg?seed=${randomSeed}`);
   };
 
+  const handleVerifyPending = async (locId) => {
+    await verifyLocation(locId);
+    loadLedger();
+  };
+
+  if (!user) {
+    return (
+      <div className="vp-page">
+        <section className="vp-page-hero">
+          <div className="vp-container">
+            <span className="vp-eyebrow"><span className="vp-eyebrow-dot" /> Explorer Ledger</span>
+            <h1>Sign in Required</h1>
+            <p className="vp-page-hero-lead">Connect an explorer account to view your mapped trails, reviews, and credentials.</p>
+          </div>
+        </section>
+        <section className="vp-section">
+          <div className="vp-container">
+            <div className="vp-empty-state">
+              <ShieldAlert size={34} />
+              <h2>No Active Session</h2>
+              <p>Sign in with your username or choose a demo explorer profile to continue.</p>
+              <Link to="/login" className="vp-btn-dark">Sign in to ViewPoint</Link>
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white min-h-screen py-10 px-4 sm:px-6 lg:px-8 font-sans transition-colors duration-300">
-      <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
-        
-        {/* Profile Card Header */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col sm:flex-row items-center sm:items-start gap-6 relative transition-colors">
-          
-          {/* Theme switcher inside Profile card */}
-          <div className="absolute right-6 top-6 flex items-center gap-2">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:inline">Theme</span>
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
-              title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
-            >
-              {theme === 'dark' ? <Sun className="h-4.5 w-4.5 text-amber-400" /> : <Moon className="h-4.5 w-4.5 text-indigo-400" />}
-            </button>
-          </div>
-
-          <div className="flex flex-col items-center gap-3">
-            <img
-              src={avatar || user.avatar}
-              alt={user.username}
-              className="h-24 w-24 rounded-full border-2 border-adventure-500 bg-slate-950 p-1 shadow-lg"
+    <div className="vp-page" ref={pageRef}>
+      <section className="vp-page-hero">
+        <svg className="vp-page-hero-contours" viewBox="0 0 600 400" aria-hidden="true">
+          {[0, 1, 2, 3, 4].map((ring) => (
+            <ellipse
+              key={ring}
+              cx="420"
+              cy="190"
+              rx={80 + ring * 50}
+              ry={52 + ring * 30}
+              transform="rotate(-24 420 190)"
+              fill="none"
+              stroke="rgba(194, 214, 123, 0.24)"
+              strokeWidth="1"
             />
-            {isEditing && (
-              <button
-                type="button"
-                onClick={handleCycleAvatarSeed}
-                className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-750 px-2 py-1 rounded-lg font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition"
-              >
-                Cycle Avatar
-              </button>
-            )}
+          ))}
+        </svg>
+
+        <div className="vp-container">
+          <div className="vp-profile-hero-grid">
+            <div className="vp-profile-avatar-col">
+              <img
+                src={avatar || user.avatar}
+                alt={user.username}
+                className="vp-profile-avatar"
+              />
+              {isEditing && (
+                <button
+                  type="button"
+                  onClick={handleCycleAvatarSeed}
+                  className="vp-btn-outline-light"
+                  style={{ minHeight: 34, padding: '4px 10px', fontSize: 11 }}
+                >
+                  Cycle Avatar
+                </button>
+              )}
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+                <span className="vp-eyebrow"><span className="vp-eyebrow-dot" /> {user.role} Node</span>
+              </div>
+              <h1 style={{ marginTop: 10 }}>{fullName || user.username}</h1>
+
+              <div className="vp-profile-meta-row">
+                <span><User size={14} aria-hidden="true" /> @{user.username}</span>
+                <span><Mail size={14} aria-hidden="true" /> {email}</span>
+                <span><Calendar size={14} aria-hidden="true" /> Joined {user.joinedDate || '2026'}</span>
+              </div>
+
+              <p className="vp-profile-bio">"{bioText || 'No field biography written yet.'}"</p>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                <button
+                  type="button"
+                  className="vp-btn-primary"
+                  onClick={() => setIsEditing((prev) => !prev)}
+                >
+                  <Edit3 size={15} aria-hidden="true" />
+                  <span>{isEditing ? 'Close Editor' : 'Edit Profile'}</span>
+                </button>
+                <Link to="/add-location" className="vp-btn-outline-light">
+                  Share a Spot
+                </Link>
+              </div>
+            </div>
           </div>
-          
-          <div className="flex-grow text-center sm:text-left space-y-4">
-            
-            {/* View Mode */}
-            {!isEditing ? (
-              <div className="space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 justify-center sm:justify-start">
-                  <h2 className="text-2xl font-extrabold">{fullName}</h2>
-                  <span className="inline-flex items-center gap-1 self-center bg-adventure-500/20 px-2 py-0.5 rounded text-[10px] font-extrabold text-adventure-500 dark:text-adventure-300 uppercase tracking-widest border border-adventure-500/30">
-                    <Award className="h-3 w-3" />
-                    {user.role} Node
-                  </span>
-                </div>
 
-                <div className="flex flex-wrap justify-center sm:justify-start gap-4 text-xs text-slate-500 dark:text-slate-400">
-                  <span className="flex items-center gap-1 font-semibold">
-                    <User className="h-4 w-4 text-slate-400" />
-                    @{user.username}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Mail className="h-4 w-4 text-slate-400" />
-                    {email}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Calendar className="h-4 w-4 text-slate-400" />
-                    Joined: {user.joinedDate}
-                  </span>
-                </div>
-
-                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 max-w-xl text-left">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="block text-[10px] uppercase font-bold text-slate-400 tracking-wider">Explorer Bio</span>
-                    <button onClick={() => setIsEditing(true)} className="text-adventure-500 dark:text-adventure-400 hover:text-adventure-600 dark:hover:text-adventure-300 flex items-center gap-1 text-xs font-bold transition">
-                      <Edit3 className="h-3.5 w-3.5" /> Edit Profile
-                    </button>
-                  </div>
-                  <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed italic">
-                    "{bioText || 'No bio written yet.'}"
-                  </p>
-                </div>
-              </div>
-            ) : (
-              /* Edit Mode Form */
-              <div className="space-y-4 text-left max-w-xl">
-                <span className="block text-xs uppercase font-extrabold text-adventure-500 tracking-wider">Edit Node Credentials</span>
-                
-                {validationError && (
-                  <div className="bg-red-950/20 border border-red-500/30 p-2.5 rounded-xl text-[10px] text-red-400">
-                    {validationError}
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">Full Name</label>
-                    <input
-                      type="text"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-950 dark:text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-adventure-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">Email Address</label>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-950 dark:text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-adventure-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1">
-                    <Image className="h-3 w-3" />
-                    Avatar Image Link / Seed
-                  </label>
+          {isEditing && (
+            <form className="vp-profile-edit-panel" onSubmit={handleSave}>
+              <span className="vp-eyebrow vp-eyebrow--light">Update MongoDB Profile</span>
+              {validationError && (
+                <div className="vp-alert vp-alert--danger">{validationError}</div>
+              )}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+                <div className="vp-field">
+                  <label htmlFor="prof-name" className="vp-label">Full Name</label>
                   <input
+                    id="prof-name"
                     type="text"
-                    value={avatar}
-                    onChange={(e) => setAvatar(e.target.value)}
-                    placeholder="Provide image link or seed"
-                    className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-950 dark:text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-adventure-500 font-mono"
+                    className="vp-input"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
                   />
                 </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">Biography</label>
-                  <textarea
-                    value={bioText}
-                    onChange={(e) => setBioText(e.target.value)}
-                    rows="3"
-                    className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-950 dark:text-white rounded-xl p-3 text-xs focus:outline-none focus:border-adventure-500 resize-none"
+                <div className="vp-field">
+                  <label htmlFor="prof-email" className="vp-label">Email Address</label>
+                  <input
+                    id="prof-email"
+                    type="email"
+                    className="vp-input"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                   />
-                </div>
-
-                <div className="flex gap-2 justify-end">
-                  <button
-                    onClick={() => {
-                      setIsEditing(false);
-                      setValidationError('');
-                    }}
-                    className="bg-slate-100 dark:bg-slate-850 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 px-4 py-2 rounded-xl text-xs font-bold transition"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSave}
-                    className="bg-adventure-500 hover:bg-adventure-400 text-white px-5 py-2 rounded-xl text-xs font-bold transition shadow-md shadow-adventure-900/10"
-                  >
-                    Save Changes
-                  </button>
                 </div>
               </div>
-            )}
+              <div className="vp-field">
+                <label htmlFor="prof-avatar" className="vp-label">Avatar URL</label>
+                <input
+                  id="prof-avatar"
+                  type="text"
+                  className="vp-input"
+                  value={avatar}
+                  onChange={(e) => setAvatar(e.target.value)}
+                />
+              </div>
+              <div className="vp-field">
+                <label htmlFor="prof-bio" className="vp-label">Explorer Bio</label>
+                <textarea
+                  id="prof-bio"
+                  className="vp-textarea"
+                  value={bioText}
+                  onChange={(e) => setBioText(e.target.value)}
+                />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button
+                  type="button"
+                  className="vp-btn-secondary"
+                  onClick={() => {
+                    setIsEditing(false);
+                    setValidationError('');
+                  }}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="vp-btn-dark" disabled={saving}>
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          <div className="vp-telemetry-strip">
+            <div className="vp-telemetry-item">
+              <span>Mapped Spots</span>
+              <strong>{userCreatedLocs.length}</strong>
+            </div>
+            <div className="vp-telemetry-item">
+              <span>Upvotes Received</span>
+              <strong>{totalUpvotesReceived}</strong>
+            </div>
+            <div className="vp-telemetry-item">
+              <span>Field Reviews</span>
+              <strong>{userReviews.length}</strong>
+            </div>
+            <div className="vp-telemetry-item">
+              <span>Node Role</span>
+              <strong>{user.role}</strong>
+            </div>
           </div>
         </div>
+      </section>
 
-        {/* User Discoveries Section */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">My Shared Discoveries</h3>
-          
-          {userCreatedLocs.length === 0 ? (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-3xl p-8 text-center text-slate-400 dark:text-slate-500 text-xs">
-              No spots mapped yet. Discovered a new path near Bangalore outskirts?
-              <Link to="/add-location" className="block text-adventure-500 dark:text-adventure-400 hover:text-adventure-600 dark:hover:text-adventure-300 font-bold mt-2">
-                Pin Your First Discovery
-              </Link>
+      <section className="vp-section">
+        <div className="vp-container" style={{ display: 'grid', gap: 44 }}>
+          <div>
+            <div className="vp-section-head">
+              <div>
+                <span className="vp-eyebrow vp-eyebrow--light">01 / Contributions</span>
+                <h2 className="vp-section-title">My Shared Discoveries</h2>
+              </div>
+              <Link to="/add-location" className="vp-btn-dark">Pin a New Spot</Link>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {userCreatedLocs.map(loc => (
-                <div key={loc.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-2xl p-4 flex gap-4 items-center">
-                  <img
-                    src={loc.images[0]}
-                    alt={loc.name}
-                    className="h-16 w-16 rounded-xl object-cover bg-slate-950 flex-shrink-0"
-                  />
-                  <div className="flex-grow space-y-1">
-                    <h4 className="font-bold text-sm text-slate-900 dark:text-white line-clamp-1">{loc.name}</h4>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                      <MapPin className="h-3 w-3 text-slate-400" /> Lat: {loc.lat.toFixed(3)}, Lng: {loc.lng.toFixed(3)}
-                    </span>
-                    <div className="flex items-center gap-2 pt-1">
-                      <span className={`inline-flex items-center gap-0.5 rounded text-[9px] font-bold px-1.5 py-0.5 ${
-                        loc.verificationStatus === 'verified'
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                      }`}>
-                        {loc.verificationStatus === 'verified' ? <CheckCircle className="h-2 w-2" /> : null}
-                        {loc.verificationStatus}
+
+            {userCreatedLocs.length === 0 ? (
+              <div className="vp-empty-state">
+                <MapPin size={28} />
+                <p>No spots mapped under your account yet. Pin a Bangalore ridge or heritage site.</p>
+                <Link to="/add-location" className="vp-inline-link">Pin Your First Discovery</Link>
+              </div>
+            ) : (
+              <div className="vp-profile-grid-2">
+                {userCreatedLocs.map((loc) => (
+                  <Link key={loc.id} to={`/location/${loc.id}`} className="vp-discovery-row-card">
+                    <img src={loc.images[0]} alt={loc.name} loading="lazy" />
+                    <div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
+                        <span
+                          className={`vp-badge ${
+                            loc.verificationStatus === 'verified' ? 'vp-badge--verified' : 'vp-badge--pending'
+                          }`}
+                        >
+                          {loc.verificationStatus}
+                        </span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--vp-muted)' }}>
+                          {loc.upvotes} upvotes
+                        </span>
+                      </div>
+                      <h3>{loc.name}</h3>
+                      <span style={{ fontSize: 12, color: 'var(--vp-muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <MapPin size={12} aria-hidden="true" /> {loc.lat.toFixed(3)}, {loc.lng.toFixed(3)}
                       </span>
-                      <span className="text-[10px] text-slate-500 font-semibold">{loc.upvotes} Upvotes</span>
                     </div>
-                  </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <div className="vp-section-head">
+              <div>
+                <span className="vp-eyebrow vp-eyebrow--light">02 / Trail Logs</span>
+                <h2 className="vp-section-title">Written Field Notes ({userReviews.length})</h2>
+              </div>
+            </div>
+
+            {userReviews.length === 0 ? (
+              <div className="vp-empty-state">
+                <p>You have not written any trail reviews yet. Open any location dossier to record your observations.</p>
+                <Link to="/explore" className="vp-inline-link">Browse Field Atlas</Link>
+              </div>
+            ) : (
+              <div className="vp-profile-grid-2">
+                {userReviews.map((rev) => {
+                  const targetId = rev.location?._id || rev.locationId || rev.location;
+                  const targetName = rev.location?.name || 'Location Dossier';
+                  return (
+                    <article key={rev._id || rev.id} className="vp-panel" style={{ display: 'grid', gap: 8 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                        <Link to={`/location/${targetId}`} className="vp-inline-link" style={{ fontSize: 15 }}>
+                          {targetName} <ArrowUpRight size={14} aria-hidden="true" />
+                        </Link>
+                        <StarRating rating={rev.rating} px={13} />
+                      </div>
+                      <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6, color: 'var(--vp-ink)' }}>
+                        {rev.comment}
+                      </p>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {user.role === 'Pathfinder' && (
+            <div>
+              <div className="vp-section-head">
+                <div>
+                  <span className="vp-eyebrow vp-eyebrow--light">03 / Pathfinder Authority</span>
+                  <h2 className="vp-section-title">Verification Queue ({pendingSpots.length})</h2>
                 </div>
-              ))}
+              </div>
+
+              {pendingSpots.length === 0 ? (
+                <div className="vp-alert vp-alert--ok">
+                  <CheckCircle size={17} aria-hidden="true" />
+                  <span>All submitted community spots are currently verified.</span>
+                </div>
+              ) : (
+                <div className="vp-verify-desk">
+                  {pendingSpots.map((spot) => (
+                    <div className="vp-verify-row" key={spot.id}>
+                      <div>
+                        <strong style={{ fontSize: 15, display: 'block' }}>{spot.name}</strong>
+                        <span style={{ fontSize: 12, color: 'var(--vp-muted)' }}>
+                          {spot.categoryName} · {spot.lat.toFixed(4)}° N, {spot.lng.toFixed(4)}° E
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <Link to={`/location/${spot.id}`} className="vp-btn-secondary" style={{ minHeight: 38, padding: '6px 12px', fontSize: 12 }}>
+                          Inspect Dossier
+                        </Link>
+                        <button
+                          type="button"
+                          className="vp-btn-dark"
+                          style={{ minHeight: 38, padding: '6px 12px', fontSize: 12 }}
+                          onClick={() => handleVerifyPending(spot.id)}
+                        >
+                          <Award size={14} aria-hidden="true" />
+                          <span>Verify Spot</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
-
-      </div>
+      </section>
     </div>
   );
 }
