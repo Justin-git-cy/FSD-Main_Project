@@ -287,6 +287,23 @@ const SEED_LOCATIONS = [
     weatherWarnings: { rainy: 'CAUTION: The courtyard gathers water.' },
     createdByUsername: 'system',
   },
+  // Verified Historic - 19th verified sight (21 total mapped locations)
+  {
+    name: 'Nandi Hills Tipu Drop & Ancient Fort',
+    description: 'Ancient hill fortress perched at 1,478m north of Bangalore with Tipu-era stone ramparts, Yoganandeeshwara shrine, and a 600m cliff drop.',
+    categorySlug: 'historic',
+    difficulty: 'easy',
+    lat: 13.3702, lng: 77.6835,
+    rating: 4.6, verificationStatus: 'verified', upvotes: 102,
+    images: ['https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=800&q=80'],
+    seasonalSuitability: { summer: 0.7, monsoon: 0.6, winter: 1.0 },
+    bestSeason: 'Winter',
+    weatherWarnings: {
+      rainy: 'WARNING: Stone steps and cliff-edge pathways become slick with dense cloud mist. Stay behind guardrails.',
+      misty: 'ADVISORY: Heavy dawn fog reduces visibility near Tipu Drop. Watch your footing along the ramparts.',
+    },
+    createdByUsername: 'system',
+  },
   // Pending (community submissions)
   {
     name: 'Kanakapura Abandoned Clay Mines',

@@ -1,61 +1,118 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  Compass,
+  MapPin,
+  PlusCircle,
+  Send,
+  ShieldAlert,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { addLocation } from '../utils/storage';
-import { PlusCircle, ShieldAlert } from 'lucide-react';
+import './AddLocation.css';
+
+const DEFAULT_IMG =
+  'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=800&q=80';
 
 export default function AddLocation() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const markerRef = useRef(null);
 
   const [formData, setFormData] = useState({
     name: '',
     categoryId: 'cat_trekking',
     difficulty: 'medium',
     description: '',
-    lat: '12.9716', // Default Bangalore MG Road area
+    lat: '12.9716',
     lng: '77.5946',
     imageUrl: '',
     bestSeason: 'Winter',
-    summerSuitability: '0.8',
+    summerSuitability: '0.6',
     monsoonSuitability: '0.5',
     winterSuitability: '0.9',
     rainyWarning: '',
-    sunnyWarning: ''
+    sunnyWarning: '',
   });
 
   const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
 
-  if (!user) {
-    return (
-      <div className="bg-slate-50 dark:bg-slate-950 min-h-[70vh] flex flex-col items-center justify-center text-slate-900 dark:text-white px-4 font-sans transition-colors duration-300">
-        <ShieldAlert className="h-12 w-12 text-amber-500 mb-4" />
-        <h2 className="text-xl font-bold mb-2">Access Denied</h2>
-        <p className="text-slate-550 dark:text-slate-400 text-xs mb-6 text-center max-w-sm">You must be logged in as an explorer to share a new discovery.</p>
-        <Link to="/login" className="bg-adventure-500 hover:bg-adventure-400 transition text-white px-5 py-2 rounded-xl text-sm font-bold shadow-md">
-          Sign In
-        </Link>
-      </div>
-    );
-  }
+  // Interactive Click-to-Pin Map
+  useEffect(() => {
+    if (!user || !mapRef.current || !window.L) return undefined;
+
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
+    }
+
+    const startLat = parseFloat(formData.lat) || 12.9716;
+    const startLng = parseFloat(formData.lng) || 77.5946;
+    const map = window.L.map(mapRef.current).setView([startLat, startLng], 10);
+    mapInstanceRef.current = map;
+
+    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '© OpenStreetMap contributors',
+    }).addTo(map);
+
+    const icon = window.L.divIcon({
+      html: `<div style="width:20px;height:20px;border-radius:50%;background:#c2d67b;border:3px solid #131a16;box-shadow:0 3px 8px rgba(0,0,0,.45);"></div>`,
+      className: 'vp-pin-picker',
+      iconSize: [20, 20],
+      iconAnchor: [10, 10],
+    });
+
+    const marker = window.L.marker([startLat, startLng], { icon }).addTo(map);
+    markerRef.current = marker;
+
+    map.on('click', (e) => {
+      const { lat, lng } = e.latlng;
+      setFormData((prev) => ({
+        ...prev,
+        lat: lat.toFixed(4),
+        lng: lng.toFixed(4),
+      }));
+    });
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // Sync typed coordinates to map marker
+  useEffect(() => {
+    const lat = parseFloat(formData.lat);
+    const lng = parseFloat(formData.lng);
+    if (!isNaN(lat) && !isNaN(lng) && markerRef.current) {
+      markerRef.current.setLatLng([lat, lng]);
+    }
+  }, [formData.lat, formData.lng]);
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const validate = () => {
     const newErrors = {};
-    if (!formData.name.trim()) newErrors.name = 'Name is required';
-    if (!formData.description.trim()) newErrors.description = 'Description is required';
-    
+    if (!formData.name.trim()) newErrors.name = 'Location name is required.';
+    if (!formData.description.trim()) newErrors.description = 'Description is required.';
+
     const latNum = parseFloat(formData.lat);
-    if (isNaN(latNum) || latNum < 12.0 || latNum > 14.0) {
-      newErrors.lat = 'Latitude must be a valid float in the Bangalore region (e.g. 12.0 to 14.0)';
+    if (isNaN(latNum) || latNum < 12.0 || latNum > 14.2) {
+      newErrors.lat = 'Latitude must fall within the Bangalore belt (12.0 to 14.2).';
     }
 
     const lngNum = parseFloat(formData.lng);
-    if (isNaN(lngNum) || lngNum < 77.0 || lngNum > 79.0) {
-      newErrors.lng = 'Longitude must be a valid float in the Bangalore region (e.g. 77.0 to 79.0)';
+    if (isNaN(lngNum) || lngNum < 76.8 || lngNum > 79.0) {
+      newErrors.lng = 'Longitude must fall within the Bangalore belt (76.8 to 79.0).';
     }
 
     setErrors(newErrors);
@@ -64,8 +121,9 @@ export default function AddLocation() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validate()) return;
+    if (!validate() || !user) return;
 
+    setSubmitting(true);
     const weatherWarnings = {};
     if (formData.rainyWarning.trim()) weatherWarnings.rainy = formData.rainyWarning.trim();
     if (formData.sunnyWarning.trim()) weatherWarnings.sunny = formData.sunnyWarning.trim();
@@ -84,251 +142,334 @@ export default function AddLocation() {
       seasonalSuitability: {
         summer: parseFloat(formData.summerSuitability),
         monsoon: parseFloat(formData.monsoonSuitability),
-        winter: parseFloat(formData.winterSuitability)
+        winter: parseFloat(formData.winterSuitability),
       },
       weatherWarnings,
-      rating: 4.0, // default rating for new user submissions
-      upvotes: 0
+      rating: 4.0,
+      upvotes: 0,
     };
 
     const added = await addLocation(newLoc);
-    navigate(`/explore?focus=${added.id || added._id}`);
+    setSubmitting(false);
+    navigate(`/location/${added.id || added._id}`);
   };
 
-  return (
-    <div className="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white min-h-screen py-10 px-4 sm:px-6 lg:px-8 font-sans transition-colors duration-300">
-      <div className="max-w-3xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl dark:shadow-2xl space-y-6 transition-colors">
-        
-        {/* Header */}
-        <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <PlusCircle className="h-6 w-6 text-adventure-500 dark:text-adventure-400" />
-            Share a New Discovery
-          </h2>
-          <p className="text-slate-550 dark:text-slate-400 text-xs mt-1 leading-relaxed">
-            Have you located an unmapped ruins spot, trek, or historic temple outskirts of Bangalore? Fill out the details.
-            {user.role === 'Pathfinder' 
-              ? ' Since you are a Pathfinder, your submission will be auto-verified!' 
-              : ' Your coordinates will be pinned as "Pending" until upvoted by the community.'}
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          
-          {/* Section 1: Core Details */}
-          <div className="space-y-4">
-            <h3 className="text-xs uppercase font-extrabold tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800 pb-2">Core Details</h3>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-300 mb-1.5">Sight Name</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  placeholder="e.g. Savandurga Monolith"
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-950 dark:text-white focus:outline-none focus:border-adventure-500 transition-colors"
-                />
-                {errors.name && <span className="text-[10px] text-red-400 mt-1 block">{errors.name}</span>}
-              </div>
-              
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-300 mb-1.5">Category</label>
-                <select
-                  name="categoryId"
-                  value={formData.categoryId}
-                  onChange={handleChange}
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-950 dark:text-white rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-adventure-500 cursor-pointer transition-colors"
-                >
-                  <option value="cat_trekking">Trekking & Hills</option>
-                  <option value="cat_abandoned">Abandoned & Ruins</option>
-                  <option value="cat_historic">Historic Sights</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-slate-300 mb-1.5">Description</label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                placeholder="Give details about the approach, safety warnings, and what explorers should watch out for..."
-                rows="4"
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-4 text-xs text-slate-955 dark:text-white focus:outline-none focus:border-adventure-500 resize-none transition-colors"
-              />
-              {errors.description && <span className="text-[10px] text-red-400 mt-1 block">{errors.description}</span>}
+  if (!user) {
+    return (
+      <div className="vp-page">
+        <section className="vp-page-hero">
+          <div className="vp-container">
+            <span className="vp-eyebrow"><span className="vp-eyebrow-dot" /> Contribution Ledger</span>
+            <h1>Share a Discovery</h1>
+            <p className="vp-page-hero-lead">
+              Sign in as an Explorer or Pathfinder to pin new Bangalore trails, forts, and field notes to MongoDB.
+            </p>
+          </div>
+        </section>
+        <section className="vp-section">
+          <div className="vp-container">
+            <div className="vp-empty-state">
+              <ShieldAlert size={34} />
+              <h2>Explorer Session Required</h2>
+              <p>Connect your explorer account so your discovery is attributed accurately and reviewed by the community.</p>
+              <Link to="/login" className="vp-btn-dark">Sign in to ViewPoint</Link>
             </div>
           </div>
-
-          {/* Section 2: Coordinates & Images */}
-          <div className="space-y-4">
-            <h3 className="text-xs uppercase font-extrabold tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800 pb-2">Coordinates & Images</h3>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-300 mb-1.5">Latitude</label>
-                <input
-                  type="text"
-                  name="lat"
-                  value={formData.lat}
-                  onChange={handleChange}
-                  placeholder="e.g. 12.9716"
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-955 dark:text-white focus:outline-none focus:border-adventure-500 font-mono transition-colors"
-                />
-                {errors.lat && <span className="text-[10px] text-red-400 mt-1 block">{errors.lat}</span>}
-              </div>
-              
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-300 mb-1.5">Longitude</label>
-                <input
-                  type="text"
-                  name="lng"
-                  value={formData.lng}
-                  onChange={handleChange}
-                  placeholder="e.g. 77.5946"
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-955 dark:text-white focus:outline-none focus:border-adventure-500 font-mono transition-colors"
-                />
-                {errors.lng && <span className="text-[10px] text-red-400 mt-1 block">{errors.lng}</span>}
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-300 mb-1.5">Difficulty</label>
-                <select
-                  name="difficulty"
-                  value={formData.difficulty}
-                  onChange={handleChange}
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-950 dark:text-white rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-adventure-500 cursor-pointer transition-colors"
-                >
-                  <option value="easy">Easy / Hike</option>
-                  <option value="medium">Medium / Trek</option>
-                  <option value="hard">Hard / Climb</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-slate-300 mb-1.5">Image URL (Optional)</label>
-              <input
-                type="text"
-                name="imageUrl"
-                value={formData.imageUrl}
-                onChange={handleChange}
-                placeholder="https://images.unsplash.com/photo-..."
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-955 dark:text-white focus:outline-none focus:border-adventure-500 transition-colors"
-              />
-            </div>
-          </div>
-
-          {/* Section 3: Seasonal suitability & warnings */}
-          <div className="space-y-4">
-            <h3 className="text-xs uppercase font-extrabold tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-800 pb-2">Seasonal Suitability (0.0 to 1.0)</h3>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-300 mb-1.5">Best Season</label>
-                <select
-                  name="bestSeason"
-                  value={formData.bestSeason}
-                  onChange={handleChange}
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-955 dark:text-white rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-adventure-500 cursor-pointer transition-colors"
-                >
-                  <option value="Winter">Winter</option>
-                  <option value="Monsoon">Monsoon</option>
-                  <option value="Summer">Summer</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-300 mb-1.5">Summer Score</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="1"
-                  name="summerSuitability"
-                  value={formData.summerSuitability}
-                  onChange={handleChange}
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-955 dark:text-white focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-300 mb-1.5">Monsoon Score</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="1"
-                  name="monsoonSuitability"
-                  value={formData.monsoonSuitability}
-                  onChange={handleChange}
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-955 dark:text-white focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-300 mb-1.5">Winter Score</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="1"
-                  name="winterSuitability"
-                  value={formData.winterSuitability}
-                  onChange={handleChange}
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-955 dark:text-white focus:outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-300 mb-1.5">Rainy Weather Warning</label>
-                <input
-                  type="text"
-                  name="rainyWarning"
-                  value={formData.rainyWarning}
-                  onChange={handleChange}
-                  placeholder="e.g. CRITICAL: Granite hill gets slippery."
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-955 dark:text-white focus:outline-none"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-300 mb-1.5">Sunny Weather Advisory</label>
-                <input
-                  type="text"
-                  name="sunnyWarning"
-                  value={formData.sunnyWarning}
-                  onChange={handleChange}
-                  placeholder="e.g. CAUTION: Bring 3L water."
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-955 dark:text-white focus:outline-none"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Form Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-            <Link
-              to="/explore"
-              className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition"
-            >
-              Cancel
-            </Link>
-            
-            <button
-              type="submit"
-              className="bg-adventure-500 hover:bg-adventure-400 transition text-white px-6 py-2.5 text-xs rounded-xl font-bold shadow-md shadow-adventure-900/30"
-            >
-              Broadcast Coordinate Node
-            </button>
-          </div>
-
-        </form>
+        </section>
       </div>
+    );
+  }
+
+  return (
+    <div className="vp-page">
+      <section className="vp-page-hero">
+        <svg className="vp-page-hero-contours" viewBox="0 0 600 400" aria-hidden="true">
+          {[0, 1, 2, 3, 4].map((ring) => (
+            <ellipse
+              key={ring}
+              cx="380"
+              cy="190"
+              rx={85 + ring * 52}
+              ry={52 + ring * 32}
+              transform="rotate(-22 380 190)"
+              fill="none"
+              stroke="rgba(194, 214, 123, 0.24)"
+              strokeWidth="1"
+            />
+          ))}
+        </svg>
+        <div className="vp-container">
+          <div className="vp-page-hero-inner">
+            <div className="vp-page-hero-copy">
+              <span className="vp-eyebrow"><span className="vp-eyebrow-dot" /> Field Submission</span>
+              <h1>Share a New Discovery</h1>
+              <p className="vp-page-hero-lead">
+                {user.role === 'Pathfinder'
+                  ? 'Logged in as a Pathfinder. Your submission will be verified immediately in the atlas.'
+                  : 'Pin an unmapped trail, ruin, or historic landmark. Submissions enter Pending review until verified.'}
+              </p>
+            </div>
+            <div className="vp-page-hero-actions">
+              <Link to="/explore" className="vp-btn-outline-light">
+                <Compass size={15} aria-hidden="true" />
+                <span>Browse Atlas</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="vp-section">
+        <div className="vp-container vp-add-grid">
+          <form className="vp-panel vp-add-form" onSubmit={handleSubmit}>
+            <div className="vp-form-section">
+              <h2>01 / Core Route Identity</h2>
+              <div className="vp-form-row-2">
+                <div className="vp-field">
+                  <label htmlFor="loc-name" className="vp-label">Location Name</label>
+                  <input
+                    id="loc-name"
+                    type="text"
+                    name="name"
+                    className="vp-input"
+                    value={formData.name}
+                    onChange={handleChange}
+                    placeholder="e.g. Makalidurga Ridge Fort"
+                  />
+                  {errors.name && <span className="vp-error-text">{errors.name}</span>}
+                </div>
+
+                <div className="vp-field">
+                  <label htmlFor="loc-cat" className="vp-label">Terrain Category</label>
+                  <select
+                    id="loc-cat"
+                    name="categoryId"
+                    className="vp-select"
+                    value={formData.categoryId}
+                    onChange={handleChange}
+                  >
+                    <option value="cat_trekking">Trekking &amp; Hills</option>
+                    <option value="cat_abandoned">Abandoned &amp; Ruins</option>
+                    <option value="cat_historic">Historic Sights</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="vp-field">
+                <label htmlFor="loc-desc" className="vp-label">Field Notes &amp; Access Description</label>
+                <textarea
+                  id="loc-desc"
+                  name="description"
+                  className="vp-textarea"
+                  value={formData.description}
+                  onChange={handleChange}
+                  placeholder="Describe approach trail, parking, water points, gate timings, and hazards..."
+                />
+                {errors.description && <span className="vp-error-text">{errors.description}</span>}
+              </div>
+            </div>
+
+            <div className="vp-form-section">
+              <h2>02 / Coordinates, Difficulty &amp; Imagery</h2>
+              <div className="vp-form-row-3">
+                <div className="vp-field">
+                  <label htmlFor="loc-lat" className="vp-label">Latitude</label>
+                  <input
+                    id="loc-lat"
+                    type="text"
+                    name="lat"
+                    className="vp-input"
+                    value={formData.lat}
+                    onChange={handleChange}
+                  />
+                  {errors.lat && <span className="vp-error-text">{errors.lat}</span>}
+                </div>
+                <div className="vp-field">
+                  <label htmlFor="loc-lng" className="vp-label">Longitude</label>
+                  <input
+                    id="loc-lng"
+                    type="text"
+                    name="lng"
+                    className="vp-input"
+                    value={formData.lng}
+                    onChange={handleChange}
+                  />
+                  {errors.lng && <span className="vp-error-text">{errors.lng}</span>}
+                </div>
+                <div className="vp-field">
+                  <label htmlFor="loc-diff" className="vp-label">Difficulty</label>
+                  <select
+                    id="loc-diff"
+                    name="difficulty"
+                    className="vp-select"
+                    value={formData.difficulty}
+                    onChange={handleChange}
+                  >
+                    <option value="easy">Easy / Walk</option>
+                    <option value="medium">Medium / Trek</option>
+                    <option value="hard">Hard / Climb</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="vp-form-row-2">
+                <div className="vp-field">
+                  <label htmlFor="loc-img" className="vp-label">Photo URL (Optional)</label>
+                  <input
+                    id="loc-img"
+                    type="url"
+                    name="imageUrl"
+                    className="vp-input"
+                    value={formData.imageUrl}
+                    onChange={handleChange}
+                    placeholder="https://images.unsplash.com/..."
+                  />
+                </div>
+                <div className="vp-field">
+                  <label htmlFor="loc-season" className="vp-label">Best Season</label>
+                  <select
+                    id="loc-season"
+                    name="bestSeason"
+                    className="vp-select"
+                    value={formData.bestSeason}
+                    onChange={handleChange}
+                  >
+                    <option value="Winter">Winter</option>
+                    <option value="Monsoon">Monsoon</option>
+                    <option value="Summer">Summer</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="vp-form-section">
+              <h2>03 / Seasonal Suitability &amp; Safety Advisories</h2>
+              <div className="vp-form-row-3">
+                <div className="vp-slider-field">
+                  <div className="vp-slider-head">
+                    <label htmlFor="suit-winter">Winter Fit</label>
+                    <span>{Math.round(parseFloat(formData.winterSuitability) * 100)}%</span>
+                  </div>
+                  <input
+                    id="suit-winter"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    name="winterSuitability"
+                    value={formData.winterSuitability}
+                    onChange={handleChange}
+                    className="vp-range"
+                  />
+                </div>
+                <div className="vp-slider-field">
+                  <div className="vp-slider-head">
+                    <label htmlFor="suit-summer">Summer Fit</label>
+                    <span>{Math.round(parseFloat(formData.summerSuitability) * 100)}%</span>
+                  </div>
+                  <input
+                    id="suit-summer"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    name="summerSuitability"
+                    value={formData.summerSuitability}
+                    onChange={handleChange}
+                    className="vp-range"
+                  />
+                </div>
+                <div className="vp-slider-field">
+                  <div className="vp-slider-head">
+                    <label htmlFor="suit-monsoon">Monsoon Fit</label>
+                    <span>{Math.round(parseFloat(formData.monsoonSuitability) * 100)}%</span>
+                  </div>
+                  <input
+                    id="suit-monsoon"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    name="monsoonSuitability"
+                    value={formData.monsoonSuitability}
+                    onChange={handleChange}
+                    className="vp-range"
+                  />
+                </div>
+              </div>
+
+              <div className="vp-form-row-2">
+                <div className="vp-field">
+                  <label htmlFor="warn-rain" className="vp-label">Rainy Weather Warning</label>
+                  <input
+                    id="warn-rain"
+                    type="text"
+                    name="rainyWarning"
+                    className="vp-input"
+                    value={formData.rainyWarning}
+                    onChange={handleChange}
+                    placeholder="e.g. DANGEROUS: Steep rock gets slick"
+                  />
+                </div>
+                <div className="vp-field">
+                  <label htmlFor="warn-sun" className="vp-label">Sunny Weather Advisory</label>
+                  <input
+                    id="warn-sun"
+                    type="text"
+                    name="sunnyWarning"
+                    className="vp-input"
+                    value={formData.sunnyWarning}
+                    onChange={handleChange}
+                    placeholder="e.g. CAUTION: Carry 3L water"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, paddingTop: 8 }}>
+              <Link to="/explore" className="vp-btn-secondary">Cancel</Link>
+              <button type="submit" className="vp-btn-dark" disabled={submitting}>
+                <Send size={15} aria-hidden="true" />
+                <span>{submitting ? 'Saving to MongoDB...' : 'Publish Coordinate'}</span>
+              </button>
+            </div>
+          </form>
+
+          <aside className="vp-add-aside">
+            <div className="vp-panel">
+              <span className="vp-eyebrow vp-eyebrow--light">
+                <MapPin size={13} aria-hidden="true" /> Click Map to Pin
+              </span>
+              <p style={{ margin: '8px 0 12px', fontSize: 13, color: 'var(--vp-muted)' }}>
+                Click anywhere around Bangalore to auto-fill latitude and longitude.
+              </p>
+              <div ref={mapRef} className="vp-pin-map" data-lenis-prevent />
+              <div style={{ marginTop: 10, fontSize: 12, fontWeight: 700, color: 'var(--vp-ink)' }}>
+                Pinned: {formData.lat}° N, {formData.lng}° E
+              </div>
+            </div>
+
+            <div className="vp-panel">
+              <span className="vp-eyebrow vp-eyebrow--light">
+                <PlusCircle size={13} aria-hidden="true" /> Live Card Preview
+              </span>
+              <div className="vp-preview-card" style={{ marginTop: 12 }}>
+                <img src={formData.imageUrl.trim() || DEFAULT_IMG} alt="Preview" />
+                <div className="vp-preview-body">
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <span className="vp-badge vp-badge--category">
+                      {formData.categoryId.replace('cat_', '')}
+                    </span>
+                    <span className="vp-badge vp-badge--verified">{formData.difficulty}</span>
+                  </div>
+                  <h3>{formData.name.trim() || 'Untitled Trail Spot'}</h3>
+                  <p>{formData.description.trim() || 'Your route description will appear here as you type.'}</p>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </section>
     </div>
   );
 }

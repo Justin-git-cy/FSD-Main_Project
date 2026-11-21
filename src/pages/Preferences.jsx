@@ -1,220 +1,252 @@
-import React, { useState, useEffect } from 'react';
-import { getPreferences, savePreferences } from '../utils/storage';
-import { Sliders, CheckCircle, Compass, Star, Award } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  ArrowUpRight,
+  Award,
+  CheckCircle,
+  Compass,
+  Settings as SettingsIcon,
+  Sliders,
+  Star,
+} from 'lucide-react';
+import {
+  fetchLocations,
+  getPreferences,
+  getWeather,
+  savePreferences,
+} from '../utils/storage';
+import { rankLocations } from '../utils/scoring';
+import './Calibration.css';
+
+const CATEGORY_OPTIONS = [
+  {
+    id: 'cat_trekking',
+    title: 'Trekking & Hills',
+    desc: 'Granite monoliths, hill climbs, and morning ridge routes.',
+    icon: Compass,
+  },
+  {
+    id: 'cat_abandoned',
+    title: 'Abandoned & Ruins',
+    desc: 'Old clay factories, brick kilns, and quiet industrial remnants.',
+    icon: Star,
+  },
+  {
+    id: 'cat_historic',
+    title: 'Historic Sights',
+    desc: 'Chola temples, hilltop mud forts, and ancient stepwells.',
+    icon: Award,
+  },
+];
 
 export default function Preferences() {
   const navigate = useNavigate();
-
+  const [locations, setLocations] = useState([]);
   const [categories, setCategories] = useState({
     cat_trekking: true,
     cat_abandoned: true,
-    cat_historic: true
+    cat_historic: true,
   });
   const [difficulty, setDifficulty] = useState('medium');
-  const [success, setSuccess] = useState(false);
+  const [statusMsg, setStatusMsg] = useState('');
+  const [climate, setClimate] = useState(() => getWeather());
+  const [storedPrefs, setStoredPrefs] = useState(() => getPreferences());
 
   useEffect(() => {
     const prefs = getPreferences();
     if (prefs) {
+      setStoredPrefs(prefs);
       setDifficulty(prefs.preferredDifficulty || 'medium');
       if (prefs.preferredCategories) {
-        const catMap = { cat_trekking: false, cat_abandoned: false, cat_historic: false };
-        prefs.preferredCategories.forEach(catId => {
-          catMap[catId] = true;
+        setCategories({
+          cat_trekking: prefs.preferredCategories.includes('cat_trekking'),
+          cat_abandoned: prefs.preferredCategories.includes('cat_abandoned'),
+          cat_historic: prefs.preferredCategories.includes('cat_historic'),
         });
-        setCategories(catMap);
       }
     }
+    fetchLocations().then((locs) =>
+      setLocations(locs.filter((l) => l.verificationStatus === 'verified'))
+    );
+
+    const syncWeather = () => setClimate(getWeather());
+    const syncPrefs = () => setStoredPrefs(getPreferences());
+    window.addEventListener('weatherChanged', syncWeather);
+    window.addEventListener('preferencesChanged', syncPrefs);
+    return () => {
+      window.removeEventListener('weatherChanged', syncWeather);
+      window.removeEventListener('preferencesChanged', syncPrefs);
+    };
   }, []);
 
-  const handleCategoryToggle = (catId) => {
-    setCategories({
-      ...categories,
-      [catId]: !categories[catId]
+  const categoryCounts = useMemo(() => {
+    const counts = { cat_trekking: 0, cat_abandoned: 0, cat_historic: 0 };
+    locations.forEach((loc) => {
+      if (counts[loc.categoryId] !== undefined) counts[loc.categoryId] += 1;
     });
+    return counts;
+  }, [locations]);
+
+  const livePreviewMatches = useMemo(() => {
+    if (!locations.length) return [];
+    const activeCats = Object.keys(categories).filter((k) => categories[k]);
+    const simulatedPrefs = {
+      ...storedPrefs,
+      preferredCategories: activeCats,
+      preferredDifficulty: difficulty,
+    };
+    return rankLocations(locations, simulatedPrefs, climate).slice(0, 3);
+  }, [locations, categories, difficulty, storedPrefs, climate]);
+
+  const handleCategoryToggle = (catId) => {
+    setCategories((prev) => ({ ...prev, [catId]: !prev[catId] }));
   };
 
   const handleSave = (e) => {
     e.preventDefault();
-
-    const preferredCategories = Object.keys(categories).filter(key => categories[key]);
-
+    const preferredCategories = Object.keys(categories).filter((k) => categories[k]);
     if (preferredCategories.length === 0) {
-      alert('Please select at least one preferred category.');
+      setStatusMsg('error:Select at least one terrain category.');
       return;
     }
 
-    const currentPrefs = getPreferences();
-    const updated = {
-      ...currentPrefs,
+    savePreferences({
+      ...getPreferences(),
       preferredCategories,
-      preferredDifficulty: difficulty
-    };
-
-    savePreferences(updated);
-    setSuccess(true);
-    setTimeout(() => {
-      setSuccess(false);
-      navigate('/recommendations');
-    }, 1500);
+      preferredDifficulty: difficulty,
+    });
+    setStatusMsg('ok:Interests saved. Opening calibrated recommendations...');
+    setTimeout(() => navigate('/recommendations'), 900);
   };
 
   return (
-    <div className="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white min-h-screen py-10 px-4 sm:px-6 lg:px-8 font-sans transition-colors duration-300">
-      <div className="max-w-2xl mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl dark:shadow-2xl space-y-6 transition-colors">
-        
-        {/* Header */}
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 bg-adventure-500/10 rounded-2xl flex items-center justify-center text-adventure-500 dark:text-adventure-400">
-            <Sliders className="h-6 w-6" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold">Explorer Taste Preferences</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Customize your profiles interests to calibrate the seasonal safety scoring engine.</p>
+    <div className="vp-page">
+      <section className="vp-page-hero">
+        <svg className="vp-page-hero-contours" viewBox="0 0 600 400" aria-hidden="true">
+          {[0, 1, 2, 3, 4].map((ring) => (
+            <ellipse
+              key={ring}
+              cx="390"
+              cy="190"
+              rx={80 + ring * 50}
+              ry={52 + ring * 30}
+              transform="rotate(-24 390 190)"
+              fill="none"
+              stroke="rgba(194, 214, 123, 0.24)"
+              strokeWidth="1"
+            />
+          ))}
+        </svg>
+        <div className="vp-container">
+          <span className="vp-eyebrow"><span className="vp-eyebrow-dot" /> Calibration Desk</span>
+          <h1>Trail Interests</h1>
+          <p className="vp-page-hero-lead">
+            Choose which terrain categories and difficulty levels fit your pace to calibrate ViewPoint’s recommendation score.
+          </p>
+
+          <nav className="vp-cal-tabs" aria-label="Calibration sections">
+            <Link to="/settings" className="vp-cal-tab">
+              <SettingsIcon size={15} aria-hidden="true" /> GPS &amp; Radius
+            </Link>
+            <Link to="/preferences" className="vp-cal-tab is-active" aria-current="page">
+              <Sliders size={15} aria-hidden="true" /> Trail Interests
+            </Link>
+          </nav>
+        </div>
+      </section>
+
+      <section className="vp-section">
+        <div className="vp-container">
+          {statusMsg && (
+            <div
+              className={`vp-alert ${statusMsg.startsWith('ok:') ? 'vp-alert--ok' : 'vp-alert--danger'}`}
+              style={{ marginBottom: 22 }}
+              role="status"
+            >
+              <CheckCircle size={17} aria-hidden="true" />
+              <span>{statusMsg.replace(/^(ok|error):/, '')}</span>
+            </div>
+          )}
+
+          <div className="vp-cal-grid">
+            <form className="vp-panel" onSubmit={handleSave} style={{ display: 'grid', gap: 24 }}>
+              <div style={{ display: 'grid', gap: 12 }}>
+                <span className="vp-eyebrow vp-eyebrow--light">Preferred Terrain Categories</span>
+                {CATEGORY_OPTIONS.map((opt) => {
+                  const Icon = opt.icon;
+                  const active = categories[opt.id];
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => handleCategoryToggle(opt.id)}
+                      className={`vp-interest-card${active ? ' is-active' : ''}`}
+                      aria-pressed={active}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                        <div className="vp-interest-icon">
+                          <Icon size={18} aria-hidden="true" />
+                        </div>
+                        <div>
+                          <strong style={{ display: 'block', fontSize: 14, color: 'var(--vp-ink)' }}>{opt.title}</strong>
+                          <span style={{ fontSize: 12.5, color: 'var(--vp-muted)' }}>{opt.desc}</span>
+                        </div>
+                      </div>
+                      <span className="vp-badge vp-badge--category">{categoryCounts[opt.id]} spots</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div style={{ display: 'grid', gap: 10 }}>
+                <span className="vp-eyebrow vp-eyebrow--light">Preferred Pace &amp; Difficulty</span>
+                <div className="vp-diff-grid">
+                  {['easy', 'medium', 'hard'].map((level) => (
+                    <button
+                      key={level}
+                      type="button"
+                      onClick={() => setDifficulty(level)}
+                      className={`vp-diff-btn${difficulty === level ? ' is-active' : ''}`}
+                      aria-pressed={difficulty === level}
+                    >
+                      {level}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button type="submit" className="vp-btn-dark">
+                <span>Save &amp; View Recommendations</span>
+                <ArrowUpRight size={15} className="vp-btn-arrow" aria-hidden="true" />
+              </button>
+            </form>
+
+            <div className="vp-panel" style={{ display: 'grid', gap: 14 }}>
+              <span className="vp-eyebrow vp-eyebrow--light">Live Scoring Preview</span>
+              <h2 style={{ fontFamily: 'var(--f-display)', fontSize: 24, margin: 0 }}>
+                Top 3 Matches Right Now
+              </h2>
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--vp-muted)' }}>
+                Updates live as you toggle categories or difficulty.
+              </p>
+
+              <div style={{ display: 'grid', gap: 10, marginTop: 4 }}>
+                {livePreviewMatches.map((spot) => (
+                  <Link key={spot.id} to={`/location/${spot.id}`} className="vp-preset-btn">
+                    <div>
+                      <strong style={{ display: 'block', fontSize: 14 }}>{spot.name}</strong>
+                      <span style={{ fontSize: 12, color: 'var(--vp-muted)' }}>
+                        {spot.categoryName} · {spot.difficulty} · {spot.distance} km
+                      </span>
+                    </div>
+                    <span className="vp-badge vp-badge--verified">{spot.score}%</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
-
-        {/* Success Alert */}
-        {success && (
-          <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-300 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-400 p-3.5 rounded-xl text-xs font-semibold flex items-center gap-2">
-            <CheckCircle className="h-4.5 w-4.5 flex-shrink-0" />
-            <span>Preferences saved! Calibrating recommendation feed...</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSave} className="space-y-6">
-          
-          {/* Section 1: Categories selection */}
-          <div className="space-y-4">
-            <span className="block text-xs font-extrabold uppercase tracking-wider text-slate-450 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800 pb-2">
-              Preferred Sight Categories
-            </span>
-            
-            <div className="space-y-3">
-              {/* Trekking */}
-              <button
-                type="button"
-                onClick={() => handleCategoryToggle('cat_trekking')}
-                className={`w-full text-left p-4 rounded-xl border flex items-center justify-between transition ${
-                  categories.cat_trekking 
-                    ? 'bg-adventure-500/10 border-adventure-500 text-slate-900 dark:text-white font-semibold shadow-sm' 
-                    : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-850 hover:border-slate-350 dark:hover:border-slate-800 text-slate-550 dark:text-slate-400'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${categories.cat_trekking ? 'bg-adventure-500 text-white' : 'bg-slate-100 dark:bg-slate-900 text-slate-400'}`}>
-                    <Compass className="h-4.5 w-4.5" />
-                  </div>
-                  <div>
-                    <span className="block font-bold text-xs">Trekking & Hills</span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400">Hiking, peaks, monolith climbs, and wilderness routes.</span>
-                  </div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={categories.cat_trekking}
-                  readOnly
-                  className="rounded border-slate-300 dark:border-slate-800 text-adventure-500 focus:ring-adventure-500 bg-slate-50 dark:bg-slate-950 h-4 w-4"
-                />
-              </button>
-
-              {/* Abandoned */}
-              <button
-                type="button"
-                onClick={() => handleCategoryToggle('cat_abandoned')}
-                className={`w-full text-left p-4 rounded-xl border flex items-center justify-between transition ${
-                  categories.cat_abandoned 
-                    ? 'bg-adventure-500/10 border-adventure-500 text-slate-900 dark:text-white font-semibold shadow-sm' 
-                    : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-850 hover:border-slate-350 dark:hover:border-slate-800 text-slate-550 dark:text-slate-400'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${categories.cat_abandoned ? 'bg-adventure-500 text-white' : 'bg-slate-100 dark:bg-slate-900 text-slate-400'}`}>
-                    <Star className="h-4.5 w-4.5" />
-                  </div>
-                  <div>
-                    <span className="block font-bold text-xs">Abandoned & Ruins</span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400">Old industrial clay factories, brick kilns, and unused depots.</span>
-                  </div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={categories.cat_abandoned}
-                  readOnly
-                  className="rounded border-slate-300 dark:border-slate-800 text-adventure-500 focus:ring-adventure-500 bg-slate-50 dark:bg-slate-950 h-4 w-4"
-                />
-              </button>
-
-              {/* Historic */}
-              <button
-                type="button"
-                onClick={() => handleCategoryToggle('cat_historic')}
-                className={`w-full text-left p-4 rounded-xl border flex items-center justify-between transition ${
-                  categories.cat_historic 
-                    ? 'bg-adventure-500/10 border-adventure-500 text-slate-900 dark:text-white font-semibold shadow-sm' 
-                    : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-850 hover:border-slate-350 dark:hover:border-slate-800 text-slate-550 dark:text-slate-400'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${categories.cat_historic ? 'bg-adventure-500 text-white' : 'bg-slate-100 dark:bg-slate-900 text-slate-400'}`}>
-                    <Award className="h-4.5 w-4.5" />
-                  </div>
-                  <div>
-                    <span className="block font-bold text-xs">Historic Monuments</span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400">Mud forts, cave temples, and stepwells dating back to Cholas.</span>
-                  </div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={categories.cat_historic}
-                  readOnly
-                  className="rounded border-slate-300 dark:border-slate-800 text-adventure-500 focus:ring-adventure-500 bg-slate-50 dark:bg-slate-950 h-4 w-4"
-                />
-              </button>
-            </div>
-          </div>
-
-          {/* Section 2: Difficulty Selection */}
-          <div className="space-y-4">
-            <span className="block text-xs font-extrabold uppercase tracking-wider text-slate-450 dark:text-slate-400 border-b border-slate-100 dark:border-slate-800 pb-2">
-              Preferred Adventure Difficulty
-            </span>
-            
-            <div className="grid grid-cols-3 gap-3">
-              {['easy', 'medium', 'hard'].map((level) => {
-                const isActive = difficulty === level;
-                return (
-                  <button
-                    key={level}
-                    type="button"
-                    onClick={() => setDifficulty(level)}
-                    className={`py-3.5 rounded-xl border font-bold capitalize text-xs transition ${
-                      isActive 
-                        ? 'bg-adventure-500 text-white border-adventure-500 shadow-md shadow-adventure-900/20' 
-                        : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-850 text-slate-500 dark:text-slate-400 hover:border-slate-350 dark:hover:border-slate-800 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    {level}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Form Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-850">
-            <button
-              type="submit"
-              className="w-full bg-adventure-500 hover:bg-adventure-400 transition text-white font-bold py-3.5 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md shadow-adventure-900/30"
-            >
-              <span>Save & Re-Score Recommendations</span>
-            </button>
-          </div>
-
-        </form>
-
-      </div>
+      </section>
     </div>
   );
 }

@@ -4,19 +4,27 @@ import { API_BASE } from '../utils/api';
 
 const AuthContext = createContext();
 
+const THEME_STORAGE_KEY = 'viewpoint_theme';
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [users, setUsers] = useState([]);
-  const [theme, setTheme] = useState('dark');
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY);
+    return saved === 'dark' || saved === 'light' ? saved : 'light';
+  });
 
-  // Sync theme to document element
+  // Sync theme to document element and persist preference
   useEffect(() => {
     const root = window.document.documentElement;
     if (theme === 'dark') {
       root.classList.add('dark');
+      root.setAttribute('data-theme', 'dark');
     } else {
       root.classList.remove('dark');
+      root.setAttribute('data-theme', 'light');
     }
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
   }, [theme]);
 
   useEffect(() => {
@@ -24,10 +32,13 @@ export const AuthProvider = ({ children }) => {
     const currentUser = getActiveUser();
     setUser(currentUser);
     setUsers(getUsers());
-    if (currentUser && currentUser.theme) {
+    const savedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+    if (savedTheme === 'dark' || savedTheme === 'light') {
+      setTheme(savedTheme);
+    } else if (currentUser && currentUser.theme) {
       setTheme(currentUser.theme);
     } else {
-      setTheme('dark'); // default theme
+      setTheme('light');
     }
 
     // Sync users from MongoDB backend

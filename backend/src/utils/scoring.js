@@ -16,11 +16,36 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
 };
 
 /**
+ * Resolves active terrain/climate hazard warning for a location under the simulated season and sky.
+ */
+const getActiveWeatherWarning = (location, weather = {}) => {
+  if (!location) return null;
+  const { season, weather: weatherCondition } = weather;
+  const warningsObj = location.weatherWarnings instanceof Map
+    ? Object.fromEntries(location.weatherWarnings)
+    : location.weatherWarnings || {};
+
+  if (warningsObj[weatherCondition]) {
+    return warningsObj[weatherCondition];
+  }
+
+  const monsoonFit = location.seasonalSuitability?.monsoon;
+  if (season === 'monsoon' && monsoonFit !== undefined && monsoonFit <= 0.35) {
+    if (warningsObj.rainy) {
+      return warningsObj.rainy;
+    }
+    return 'WARNING: Steep or exposed terrain becomes slippery and hazardous during monsoon conditions.';
+  }
+
+  return null;
+};
+
+/**
  * Computes recommendation score for a location based on user preferences and weather.
  */
 const calculateLocationScore = (location, preferences, weather) => {
   const { currentLocation, preferredCategories, preferredDifficulty, searchRadius } = preferences;
-  const { season, weather: weatherCondition } = weather;
+  const { season } = weather;
 
   const scoreBreakdown = {
     proximity: 0,
@@ -59,7 +84,12 @@ const calculateLocationScore = (location, preferences, weather) => {
 
   // 3. Category Preference (Max 20 pts)
   const categoryId = location.category?._id?.toString() || location.category?.toString();
-  if (preferredCategories && preferredCategories.includes(categoryId)) {
+  const categorySlugKey = location.category?.slug ? `cat_${location.category.slug}` : null;
+  if (
+    preferredCategories &&
+    (preferredCategories.includes(categoryId) ||
+      (categorySlugKey && preferredCategories.includes(categorySlugKey)))
+  ) {
     scoreBreakdown.category = 20;
   }
 
@@ -71,10 +101,7 @@ const calculateLocationScore = (location, preferences, weather) => {
   scoreBreakdown.season = Math.round(25 * seasonSuitability);
 
   // 5. Weather Warning Safety Penalty
-  const warningsObj = location.weatherWarnings instanceof Map
-    ? Object.fromEntries(location.weatherWarnings)
-    : location.weatherWarnings || {};
-  const warning = warningsObj[weatherCondition];
+  const warning = getActiveWeatherWarning(location, weather);
   if (warning) {
     if (warning.includes('DANGEROUS') || warning.includes('CRITICAL')) {
       scoreBreakdown.safetyPenalty = -40;
@@ -100,5 +127,5 @@ const calculateLocationScore = (location, preferences, weather) => {
   };
 };
 
-module.exports = { calculateDistance, calculateLocationScore };
+module.exports = { calculateDistance, calculateLocationScore, getActiveWeatherWarning };
 

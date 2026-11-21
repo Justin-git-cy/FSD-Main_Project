@@ -1,0 +1,122 @@
+.vp-profile-hero-grid {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: clamp(20px, 3vw, 36px);
+  align-items: start;
+}
+
+.vp-profile-avatar-col {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+}
+
+.vp-profile-avatar {
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  border: 2px solid var(--vp-accent);
+  background: var(--vp-surface);
+  padding: 4px;
+  object-fit: cover;
+}
+
+.vp-profile-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 10px 0 14px;
+  font-size: 13px;
+  color: var(--vp-muted-dark);
+}
+
+.vp-profile-meta-row span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vp-profile-bio {
+  max-width: 620px;
+  margin: 0 0 18px;
+  font-size: 15px;
+  line-height: 1.65;
+  color: #d5dcd0;
+}
+
+.vp-profile-edit-panel {
+  margin-top: 24px;
+  background: var(--vp-paper-light);
+  color: var(--vp-ink);
+  border: 1px solid var(--vp-line-strong);
+  border-radius: var(--vp-radius);
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+}
+
+.vp-profile-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.vp-discovery-row-card {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  background: var(--vp-paper-light);
+  border: 1px solid var(--vp-line);
+  border-radius: var(--vp-radius);
+  transition: transform 280ms var(--vp-ease), border-color 200ms ease;
+}
+
+@media (hover: hover) {
+  .vp-discovery-row-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--vp-forest);
+  }
+}
+
+.vp-discovery-row-card img {
+  width: 92px;
+  height: 84px;
+  object-fit: cover;
+  border-radius: 2px;
+}
+
+.vp-discovery-row-card h3 {
+  margin: 0 0 4px;
+  font-family: var(--f-display);
+  font-size: 19px;
+  color: var(--vp-ink);
+}
+
+.vp-verify-desk {
+  display: grid;
+  gap: 12px;
+}
+
+.vp-verify-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--vp-paper-light);
+  border: 1px solid var(--vp-line-strong);
+  border-radius: var(--vp-radius);
+}
+
+@media (max-width: 680px) {
+  .vp-profile-hero-grid {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+  .vp-profile-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}

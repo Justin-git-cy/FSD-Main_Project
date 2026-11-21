@@ -42,12 +42,24 @@ exports.getLocations = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(200, locations, 'Locations fetched successfully'));
 });
 
-// @desc    Get single location by ID
+// @desc    Get single location by ID or fallback slug/name
 // @route   GET /api/locations/:id
 exports.getLocationById = asyncHandler(async (req, res) => {
-  const location = await Location.findById(req.params.id)
-    .populate('category', 'name slug icon')
-    .populate('createdBy', 'username fullName avatar role');
+  const { id } = req.params;
+  let location = null;
+
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    location = await Location.findById(id)
+      .populate('category', 'name slug icon')
+      .populate('createdBy', 'username fullName avatar role');
+  } else {
+    const cleanQuery = String(id).replace(/^loc_/, '').replace(/[-_]+/g, ' ').trim();
+    location = await Location.findOne({
+      name: { $regex: cleanQuery, $options: 'i' },
+    })
+      .populate('category', 'name slug icon')
+      .populate('createdBy', 'username fullName avatar role');
+  }
 
   if (!location) throw new ApiError(404, 'Location not found');
   res.status(200).json(new ApiResponse(200, location, 'Location fetched successfully'));
@@ -123,13 +135,17 @@ exports.upvoteLocation = asyncHandler(async (req, res) => {
       id,
       { $inc: { upvotes: 1 } },
       { new: true }
-    ).populate('category', 'name slug icon');
+    )
+      .populate('category', 'name slug icon')
+      .populate('createdBy', 'username fullName avatar role');
   } else {
     location = await Location.findOneAndUpdate(
       { name: id },
       { $inc: { upvotes: 1 } },
       { new: true }
-    ).populate('category', 'name slug icon');
+    )
+      .populate('category', 'name slug icon')
+      .populate('createdBy', 'username fullName avatar role');
   }
 
   if (!location) throw new ApiError(404, 'Location not found');
@@ -146,13 +162,17 @@ exports.verifyLocation = asyncHandler(async (req, res) => {
       id,
       { verificationStatus: 'verified' },
       { new: true }
-    ).populate('category', 'name slug icon');
+    )
+      .populate('category', 'name slug icon')
+      .populate('createdBy', 'username fullName avatar role');
   } else {
     location = await Location.findOneAndUpdate(
       { name: id },
       { verificationStatus: 'verified' },
       { new: true }
-    ).populate('category', 'name slug icon');
+    )
+      .populate('category', 'name slug icon')
+      .populate('createdBy', 'username fullName avatar role');
   }
 
   if (!location) throw new ApiError(404, 'Location not found');
