@@ -469,6 +469,32 @@ export const INITIAL_LOCATIONS = [
     },
     createdBy: 'system'
   },
+  {
+    id: 'loc_nandi_hills_fort',
+    name: 'Nandi Hills Tipu Drop & Ancient Fort',
+    description: 'An ancient hill fortress perched at 1,478 meters above sea level north of Bangalore. Built by the Ganga dynasty and fortified by Tipu Sultan, the stone ramparts, Yoganandeeshwara shrine, and sheer 600-meter cliff edge overlook sweeping cloud-draped valleys.',
+    categoryId: 'cat_historic',
+    difficulty: 'easy',
+    lat: 13.3702,
+    lng: 77.6835,
+    rating: 4.6,
+    verificationStatus: 'verified',
+    upvotes: 102,
+    images: [
+      'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=800&q=80'
+    ],
+    seasonalSuitability: {
+      summer: 0.7,
+      monsoon: 0.6,
+      winter: 1.0
+    },
+    bestSeason: 'Winter',
+    weatherWarnings: {
+      rainy: 'WARNING: Stone steps and cliff-edge pathways become slick with dense cloud mist. Stay behind guardrails.',
+      misty: 'ADVISORY: Heavy dawn fog reduces visibility near Tipu Drop. Watch your footing along the ramparts.'
+    },
+    createdBy: 'system'
+  },
   // Submissions for Community Discovery (Pending verification)
   {
     id: 'loc_pending_clay_mine',
