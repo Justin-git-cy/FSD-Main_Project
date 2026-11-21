@@ -78,6 +78,19 @@ export default function Settings() {
       weight: 2,
     }).addTo(map);
 
+    map.on('click', (e) => {
+      const nextLat = Number(e.latlng.lat.toFixed(4));
+      const nextLng = Number(e.latlng.lng.toFixed(4));
+      setLatInput(String(nextLat));
+      setLngInput(String(nextLng));
+      const updated = savePreferences({
+        ...getPreferences(),
+        currentLocation: { lat: nextLat, lng: nextLng },
+      });
+      setPrefs(updated);
+      setSuccessMsg(`GPS anchor pinned at ${nextLat.toFixed(4)}° N, ${nextLng.toFixed(4)}° E.`);
+    });
+
     return () => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();

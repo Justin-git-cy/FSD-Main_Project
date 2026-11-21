@@ -44,7 +44,7 @@ export default function Explore() {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef({});
-  const prefs = useMemo(() => getPreferences(), []);
+  const [prefs, setPrefs] = useState(() => getPreferences());
 
   const loadLocations = useCallback(() => {
     fetchLocations().then((data) => {
@@ -55,13 +55,16 @@ export default function Explore() {
   useEffect(() => {
     loadLocations();
     const syncWeather = () => setClimate(getWeather());
+    const syncPrefs = () => setPrefs(getPreferences());
     window.addEventListener('storage', loadLocations);
     window.addEventListener('locationsUpdated', loadLocations);
     window.addEventListener('weatherChanged', syncWeather);
+    window.addEventListener('preferencesChanged', syncPrefs);
     return () => {
       window.removeEventListener('storage', loadLocations);
       window.removeEventListener('locationsUpdated', loadLocations);
       window.removeEventListener('weatherChanged', syncWeather);
+      window.removeEventListener('preferencesChanged', syncPrefs);
     };
   }, [loadLocations]);
 

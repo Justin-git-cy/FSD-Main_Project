@@ -49,10 +49,13 @@ export default function Preferences() {
   });
   const [difficulty, setDifficulty] = useState('medium');
   const [statusMsg, setStatusMsg] = useState('');
+  const [climate, setClimate] = useState(() => getWeather());
+  const [storedPrefs, setStoredPrefs] = useState(() => getPreferences());
 
   useEffect(() => {
     const prefs = getPreferences();
     if (prefs) {
+      setStoredPrefs(prefs);
       setDifficulty(prefs.preferredDifficulty || 'medium');
       if (prefs.preferredCategories) {
         setCategories({
@@ -65,6 +68,15 @@ export default function Preferences() {
     fetchLocations().then((locs) =>
       setLocations(locs.filter((l) => l.verificationStatus === 'verified'))
     );
+
+    const syncWeather = () => setClimate(getWeather());
+    const syncPrefs = () => setStoredPrefs(getPreferences());
+    window.addEventListener('weatherChanged', syncWeather);
+    window.addEventListener('preferencesChanged', syncPrefs);
+    return () => {
+      window.removeEventListener('weatherChanged', syncWeather);
+      window.removeEventListener('preferencesChanged', syncPrefs);
+    };
   }, []);
 
   const categoryCounts = useMemo(() => {
@@ -79,12 +91,12 @@ export default function Preferences() {
     if (!locations.length) return [];
     const activeCats = Object.keys(categories).filter((k) => categories[k]);
     const simulatedPrefs = {
-      ...getPreferences(),
+      ...storedPrefs,
       preferredCategories: activeCats,
       preferredDifficulty: difficulty,
     };
-    return rankLocations(locations, simulatedPrefs, getWeather()).slice(0, 3);
-  }, [locations, categories, difficulty]);
+    return rankLocations(locations, simulatedPrefs, climate).slice(0, 3);
+  }, [locations, categories, difficulty, storedPrefs, climate]);
 
   const handleCategoryToggle = (catId) => {
     setCategories((prev) => ({ ...prev, [catId]: !prev[catId] }));

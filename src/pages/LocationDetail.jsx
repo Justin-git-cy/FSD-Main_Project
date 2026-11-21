@@ -45,6 +45,7 @@ export default function LocationDetail() {
   const [activeImage, setActiveImage] = useState(0);
   const [copiedCoords, setCopiedCoords] = useState(false);
   const [climate, setClimate] = useState(getWeather());
+  const [prefs, setPrefs] = useState(() => getPreferences());
 
   // Review form state
   const [reviewRating, setReviewRating] = useState(5);
@@ -74,10 +75,13 @@ export default function LocationDetail() {
   useEffect(() => {
     loadData();
     const syncWeather = () => setClimate(getWeather());
+    const syncPrefs = () => setPrefs(getPreferences());
     window.addEventListener('weatherChanged', syncWeather);
+    window.addEventListener('preferencesChanged', syncPrefs);
     window.addEventListener('reviewsUpdated', loadData);
     return () => {
       window.removeEventListener('weatherChanged', syncWeather);
+      window.removeEventListener('preferencesChanged', syncPrefs);
       window.removeEventListener('reviewsUpdated', loadData);
     };
   }, [loadData]);
@@ -120,7 +124,6 @@ export default function LocationDetail() {
 
   const distanceKm = useMemo(() => {
     if (!location) return null;
-    const prefs = getPreferences();
     return Math.round(
       calculateDistance(
         prefs.currentLocation.lat,
@@ -129,7 +132,7 @@ export default function LocationDetail() {
         location.lng
       ) * 10
     ) / 10;
-  }, [location]);
+  }, [location, prefs]);
 
   const nearbySpots = useMemo(() => {
     if (!location || !allLocations.length) return [];
